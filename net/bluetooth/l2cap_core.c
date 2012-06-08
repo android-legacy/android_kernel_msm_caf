@@ -4444,6 +4444,7 @@ static inline int l2cap_config_req(struct l2cap_conn *conn, struct l2cap_cmd_hdr
 	l2cap_pi(sk)->conf_ident = cmd->ident;
 	l2cap_send_cmd(conn, cmd->ident, L2CAP_CONF_RSP, len, rspbuf);
 
+<<<<<<< HEAD
 	if (l2cap_pi(sk)->conf_state & L2CAP_CONF_LOCKSTEP &&
 			rsp->result == cpu_to_le16(L2CAP_CONF_PENDING) &&
 			!l2cap_pi(sk)->amp_id) {
@@ -4453,6 +4454,16 @@ static inline int l2cap_config_req(struct l2cap_conn *conn, struct l2cap_cmd_hdr
 		rsp->result = cpu_to_le16(L2CAP_CONF_SUCCESS);
 		l2cap_pi(sk)->conf_state |= L2CAP_CONF_OUTPUT_DONE;
 		l2cap_send_cmd(conn, cmd->ident, L2CAP_CONF_RSP, len, rspbuf);
+=======
+		if (type != L2CAP_CONF_RFC)
+			continue;
+
+		if (olen != sizeof(rfc))
+			break;
+
+		memcpy(&rfc, (void *)val, olen);
+		goto done;
+>>>>>>> Bluetooth: Fix using uninitialized option in RFCMode
 	}
 
 	/* Reset config buffer. */
