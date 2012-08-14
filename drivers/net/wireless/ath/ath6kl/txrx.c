@@ -289,6 +289,7 @@ int ath6kl_control_tx(void *devt, struct sk_buff *skb,
 	    ar->state == ATH6KL_STATE_RECOVERY) {
 		dev_kfree_skb(skb);
 		return -EACCES;
+	}
 
 	spin_lock_bh(&ar->lock);
 
