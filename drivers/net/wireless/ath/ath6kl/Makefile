@@ -34,8 +34,10 @@ ath6kl_sdio-y += txrx.o
 ath6kl_sdio-y += wmi.o
 ath6kl_sdio-y += core.o
 ath6kl_sdio-y += sdio.o
+ath6kl_sdio-y += recovery.o
 athklk_sdio-y += softmac.o
 ath6kl_sdio-$(CONFIG_NL80211_TESTMODE) += testmode.o
 
 obj-$(CONFIG_ATH6KL_USB) += ath6kl_usb.o
 ath6kl_usb-y += usb.o
+th6kl-$(CONFIG_ATH6KL_USB) += usb.o
