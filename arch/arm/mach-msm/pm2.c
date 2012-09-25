@@ -890,6 +890,9 @@ static int msm_pm_power_collapse
 		WARN_ON(ret);
 	}
 
+	if (msm_cpr_ops)
+		msm_cpr_ops->cpr_suspend();
+
 	msm_pm_irq_extns->enter_sleep1(true, from_idle,
 						&msm_pm_smem_data->irq_mask);
 
@@ -1131,8 +1134,7 @@ static int msm_pm_power_collapse
 		WARN_ON(ret);
 	}
 
-	/* Call CPR resume only for "idlePC" case */
-	if (msm_cpr_ops && from_idle)
+	if (msm_cpr_ops)
 		msm_cpr_ops->cpr_resume();
 
 	return 0;
@@ -1194,8 +1196,7 @@ power_collapse_restore_gpio_bail:
 	if (collapsed)
 		smd_sleep_exit();
 
-	/* Call CPR resume only for "idlePC" case */
-	if (msm_cpr_ops && from_idle)
+	if (msm_cpr_ops)
 		msm_cpr_ops->cpr_resume();
 
 power_collapse_bail:
