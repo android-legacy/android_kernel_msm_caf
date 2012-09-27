@@ -141,7 +141,7 @@ static int  __cpuinit msm8625_release_secondary(void)
 		if ((value & MSM_CORE1_STATUS_MSK) ==
 				MSM_CORE1_STATUS_MSK)
 			break;
-			udelay(1);
+		udelay(1);
 	}
 
 	if (!value) {
@@ -161,9 +161,9 @@ static int  __cpuinit msm8625_release_secondary(void)
 	return 0;
 }
 
-void __iomem *core1_reset_base(void)
+void __iomem *core_reset_base(unsigned int cpu)
 {
-	return reset_core1_base;
+	return cpu_data[cpu].reset_core_base;
 }
 
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
