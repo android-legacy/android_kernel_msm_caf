@@ -137,7 +137,7 @@ int __devinit msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			= msm_pm_config_rst_vector_after_pc;
 		break;
 	case MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR:
-		if (!cpu_is_msm8625()) {
+		if (!cpu_is_msm8625() && !cpu_is_msm8625q()) {
 			void *remapped;
 
 			/*
@@ -193,8 +193,23 @@ int __devinit msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 
 			/* Enable boot remapper for C1 [bit:26th] */
 			__raw_writel(readl_relaxed(pdata->v_addr +
-					MPA5_CFG_CTL_REG) | BIT(26),
-					pdata->v_addr + MPA5_CFG_CTL_REG);
+					mpa5_cfg_ctl[0]) | (0x3 << 25),
+					pdata->v_addr + mpa5_cfg_ctl[0]);
+
+			/* 8x25Q changes */
+			if (cpu_is_msm8625q()) {
+				/* write 'entry' to boot remapper register */
+				__raw_writel(entry, (pdata->v_addr +
+						mpa5_boot_remap_addr[1]));
+
+				/*
+				 * Enable boot remapper for C2 [bit:25th]
+				 * Enable boot remapper for C3 [bit:26th]
+				 */
+				__raw_writel(readl_relaxed(pdata->v_addr +
+					mpa5_cfg_ctl[1]) | (0x3 << 25),
+					pdata->v_addr + mpa5_cfg_ctl[1]);
+			}
 			msm_pm_boot_before_pc = msm_pm_write_boot_vector;
 		}
 		break;
