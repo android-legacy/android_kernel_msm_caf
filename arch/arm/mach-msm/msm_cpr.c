@@ -34,8 +34,21 @@
 #include <mach/irqs.h>
 
 #include "msm_cpr.h"
+#include "pm.h"
 
 #define MODULE_NAME "msm-cpr"
+
+/**
+ * Convert the Delay time to Timer Count Register
+ * e.g if frequency is 19200 kHz and delay required is
+ * 20000us, so timer count will be 19200 * 20000 / 1000
+ */
+#define TIMER_COUNT(freq, delay) ((freq * delay) / 1000)
+#define ALL_CPR_IRQ 0x3F
+#define STEP_QUOT_MAX 25
+#define STEP_QUOT_MIN 12
+
+#define VMAX_BREACH_CNT 15
 
 /* Need platform device handle for suspend and resume APIs */
 static struct platform_device *cpr_pdev;
@@ -717,6 +730,18 @@ static int __devinit msm_cpr_probe(struct platform_device *pdev)
 	cpr = devm_kzalloc(&pdev->dev, sizeof(struct msm_cpr), GFP_KERNEL);
 	if (!cpr)
 		return -ENOMEM;
+	}
+
+	msm_cpr_debug(MSM_CPR_DEBUG_CONFIG,
+		"virt_start_ptr = %x\n", (uint32_t) virt_start_ptr);
+
+	/* enable clk for cpr */
+	if (!pdata->clk_enable) {
+		pr_err("CPR: Invalid clk_enable hook\n");
+		return -EFAULT;
+	}
+
+	pdata->clk_enable();
 
 	/* Initialize platform_data */
 	cpr->config = pdata;
