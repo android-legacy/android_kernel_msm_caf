@@ -135,6 +135,41 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 	.msm_i2c_config_gpio	= gsbi_qup_i2c_gpio_config,
 };
 
+static struct msm_gpio msm8625q_i2c_gpio_config[] = {
+	{ GPIO_CFG(39, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+		"qup_scl" },
+	{ GPIO_CFG(36, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+		"qup_sda" },
+};
+
+static int i2c_gpio_hw_config(bool on)
+{
+	int i, rc = 0;
+
+	for (i = 0 ; i < ARRAY_SIZE(msm8625q_i2c_gpio_config); i++)
+		rc = gpio_tlmm_config(msm8625q_i2c_gpio_config[i].gpio_cfg,
+				on ? GPIO_CFG_ENABLE : GPIO_CFG_DISABLE);
+		if (rc)
+			pr_err("I2C-gpio tlmm config failed\n");
+
+	return rc;
+}
+
+static struct i2c_gpio_platform_data msm8625q_i2c_gpio_pdata = {
+	.scl_pin = 39,
+	.sda_pin = 36,
+	.udelay = 5, /* 100 Khz */
+	.hw_config = i2c_gpio_hw_config,
+};
+
+static struct platform_device msm8625q_i2c_gpio = {
+	.name	= "i2c-gpio",
+	.id	= 2,
+	.dev	= {
+		.platform_data = &msm8625q_i2c_gpio_pdata,
+	}
+};
+
 #ifdef CONFIG_ARCH_MSM7X27A
 #define MSM_PMEM_MDP_SIZE       0x1B00000
 #define MSM_PMEM_ADSP_SIZE      0x1200000

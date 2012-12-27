@@ -26,6 +26,7 @@
 #include <linux/io.h>
 #include <linux/tick.h>
 #include <linux/memory.h>
+#include <linux/i2c-gpio.h>
 #include <mach/msm_iomap.h>
 #include <mach/system.h>
 #ifdef CONFIG_CPU_V7
@@ -888,6 +889,8 @@ static int msm_pm_power_collapse
 
 	msm_pm_irq_extns->enter_sleep1(true, from_idle,
 						&msm_pm_smem_data->irq_mask);
+
+	i2c_gpio_suspend_set(true);
 	msm_sirc_enter_sleep();
 	msm_gpio_enter_sleep(from_idle);
 
@@ -1015,6 +1018,8 @@ static int msm_pm_power_collapse
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND | MSM_PM_DEBUG_POWER_COLLAPSE,
 		KERN_INFO,
 		"%s(): msm_pm_collapse returned %d\n", __func__, collapsed);
+
+	i2c_gpio_suspend_set(false);
 
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_CLOCK, KERN_INFO,
 		"%s(): restore clock rate to %lu\n", __func__,
@@ -1175,6 +1180,8 @@ power_collapse_restore_gpio_bail:
 		DEM_SLAVE_SMSM_PWRC_EARLY_EXIT, DEM_SLAVE_SMSM_RUN);
 
 	MSM_PM_DEBUG_PRINT_STATE("msm_pm_power_collapse(): RUN");
+
+	i2c_gpio_suspend_set(false);
 
 	if (collapsed)
 		smd_sleep_exit();
