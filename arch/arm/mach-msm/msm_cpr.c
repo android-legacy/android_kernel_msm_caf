@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-13, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +49,8 @@ struct msm_cpr {
 	int prev_mode;
 	uint32_t floor;
 	uint32_t ceiling;
+	bool max_volt_set;
+	bool irq_done;
 	void __iomem *base;
 	unsigned int irq;
 	struct mutex cpr_mutex;
@@ -466,6 +467,7 @@ static irqreturn_t cpr_irq0_handler(int irq, void *dev_id)
 	struct msm_cpr *cpr = dev_id;
 	uint32_t reg_val, ctl_reg;
 
+	cpr->irq_done = false;
 	reg_val = cpr_read_reg(cpr, RBIF_IRQ_STATUS);
 	ctl_reg = cpr_read_reg(cpr, RBCPR_CTL);
 
@@ -490,6 +492,7 @@ static irqreturn_t cpr_irq0_handler(int irq, void *dev_id)
 		/* SW_AUTO_CONT_ACK_EN is enabled */
 		pr_debug(" CPR:IRQ %d occured for Mid Flag\n", irq);
 	}
+	cpr->irq_done = true;
 	return IRQ_HANDLED;
 }
 
@@ -648,6 +651,18 @@ static int msm_cpr_suspend(struct device *dev)
 	struct msm_cpr *cpr = dev_get_drvdata(dev);
 	int osc_num = cpr->config->cpr_mode_data->ring_osc;
 
+	/* Disable CPR measurement before IRQ to avoid pending interrupts */
+	cpr_disable(cpr);
+
+	/* Avoid suspend when regulator call (on i2c) sleeps */
+	if (cpr->irq_done == false)
+		return -EBUSY;
+
+	disable_irq(cpr->irq);
+
+	/* Clear all the interrupts */
+	cpr_write_reg(cpr, RBIF_IRQ_CLEAR, ALL_CPR_IRQ);
+
 	cpr_save_state.rbif_timer_interval =
 		cpr_read_reg(cpr, RBCPR_TIMER_INTERVAL);
 	cpr_save_state.rbif_int_en =
@@ -677,9 +692,13 @@ void msm_cpr_pm_resume(void)
 }
 EXPORT_SYMBOL(msm_cpr_pm_resume);
 
-void msm_cpr_pm_suspend(void)
+int msm_cpr_pm_suspend(void)
 {
-	msm_cpr_suspend(&cpr_pdev->dev);
+	if (!enable || disable_cpr)
+		return 0;
+
+	max_volt_count = 0;
+	return msm_cpr_suspend();
 }
 EXPORT_SYMBOL(msm_cpr_pm_suspend);
 #endif
@@ -753,7 +772,8 @@ static int __devinit msm_cpr_probe(struct platform_device *pdev)
 
 	cpr->base = base;
 
-	cpr->vp = pdata->vp_data;
+	cpr->step_size = pdata->step_size;
+	cpr->irq_done = true;
 
 	mutex_init(&cpr->cpr_mutex);
 

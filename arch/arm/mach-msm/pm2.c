@@ -877,15 +877,15 @@ static int msm_pm_power_collapse
 	memset(msm_pm_smem_data, 0, sizeof(*msm_pm_smem_data));
 
 	if (cpu_is_msm8625()) {
+	if (msm_cpr_ops && msm_cpr_ops->cpr_suspend()) {
+		ret = -EAGAIN;
+		goto power_collapse_bail;
+	}
 		/* Program the SPM */
 		ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_COLLAPSE,
 									false);
 		WARN_ON(ret);
 	}
-
-	/* Call CPR suspend only for "idlePC" case */
-	if (msm_cpr_ops && from_idle)
-		msm_cpr_ops->cpr_suspend();
 
 	msm_pm_irq_extns->enter_sleep1(true, from_idle,
 						&msm_pm_smem_data->irq_mask);
