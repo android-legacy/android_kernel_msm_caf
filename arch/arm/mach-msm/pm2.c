@@ -878,6 +878,21 @@ static int msm_pm_power_collapse
 	int val;
 	int modem_early_exit = 0;
 
+
+	/* clear C0 jump location */
+	*(uint32_t *)(virt_start_ptr + 0x40) = 0x0;
+
+	*(uint32_t *)(virt_start_ptr + 0x30) = 0x1;
+	/* This location tell us we are doing a PC */
+	*(uint32_t *)(virt_start_ptr + 0x34) = 0x1;
+
+	/* This location tell us what PC we are doing
+	 * i.e. idle/suspend
+	 * idlePC	--> 0x2
+	 * suspendPC	--> 0x1
+	 */
+	*(uint32_t *)(virt_start_ptr + 0x38) = (1 << from_idle);
+
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND|MSM_PM_DEBUG_POWER_COLLAPSE,
 		KERN_INFO, "%s(): idle %d, delay %u, limit %u\n", __func__,
 		(int)from_idle, sleep_delay, sleep_limit);
@@ -1297,6 +1312,70 @@ static int __ref msm_pm_power_collapse_standalone(bool from_idle)
 
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND|MSM_PM_DEBUG_POWER_COLLAPSE,
 		KERN_INFO, "%s()\n", __func__);
+
+	cpu = smp_processor_id();
+
+	switch (cpu) {
+	case 0:
+		*(uint32_t *)(virt_start_ptr + 0x10) = 0x1;
+		*(uint32_t *)(virt_start_ptr + 0x20) = 0x1;
+
+		/* clear C0 jump location */
+		*(uint32_t *)(virt_start_ptr + 0x40) = 0x0;
+
+		break;
+	case 1:
+		*(uint32_t *)(virt_start_ptr + 0x14) = 0x1;
+
+		/*
+		 * update "0x24" as below:
+		 * idleSPC = 0x1
+		 * hotplug = 0x2
+		 */
+		if (from_idle)
+			*(uint32_t *)(virt_start_ptr + 0x24) = 0x1;
+		else
+			/* clear this in platsmp-8625.c */
+			*(uint32_t *)(virt_start_ptr + 0x24) = 0x2;
+
+		/* clear C1 jump location */
+		*(uint32_t *)(virt_start_ptr + 0x44) = 0x0;
+		break;
+	case 2:
+		*(uint32_t *)(virt_start_ptr + 0x18) = 0x1;
+
+		/*
+		 * update "0x28" as below:
+		 * idleSPC = 0x1
+		 * hotplug = 0x2
+		 */
+		if (from_idle)
+			*(uint32_t *)(virt_start_ptr + 0x28) = 0x1;
+		else
+			/* clear this in platsmp-8625.c */
+			*(uint32_t *)(virt_start_ptr + 0x28) = 0x2;
+
+		/* clear C2 location */
+		*(uint32_t *)(virt_start_ptr + 0x48) = 0x0;
+		break;
+	case 3:
+		*(uint32_t *)(virt_start_ptr + 0x1C) = 0x1;
+
+		/*
+		 * update "0x2C" as below:
+		 * idleSPC = 0x1
+		 * hotplug = 0x2
+		 */
+		if (from_idle)
+			*(uint32_t *)(virt_start_ptr + 0x2C) = 0x1;
+		else
+			/* clear this in platsmp-8625.c */
+			*(uint32_t *)(virt_start_ptr + 0x2C) = 0x2;
+
+		/* clear C3 jump location */
+		*(uint32_t *)(virt_start_ptr + 0x4C) = 0x0;
+		break;
+	}
 
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_COLLAPSE, false);
 	WARN_ON(ret);
