@@ -38,6 +38,8 @@ ath6kl_sdio-y += recovery.o
 athklk_sdio-y += softmac.o
 ath6kl_sdio-$(CONFIG_NL80211_TESTMODE) += testmode.o
 
+ath6kl-$(CONFIG_ATH6KL_TRACING) += trace.o
 obj-$(CONFIG_ATH6KL_USB) += ath6kl_usb.o
 ath6kl_usb-y += usb.o
 th6kl-$(CONFIG_ATH6KL_USB) += usb.o
+
