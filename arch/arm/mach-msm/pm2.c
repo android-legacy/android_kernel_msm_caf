@@ -862,6 +862,9 @@ static int msm_pm_power_collapse
 	int val;
 	int modem_early_exit = 0;
 
+	/* Clear "reserved1" variable in msm_pm_smem_data */
+	msm_pm_smem_data->reserved1 = 0x0;
+
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND|MSM_PM_DEBUG_POWER_COLLAPSE,
 		KERN_INFO, "%s(): idle %d, delay %u, limit %u\n", __func__,
 		(int)from_idle, sleep_delay, sleep_limit);
