@@ -1708,7 +1708,15 @@ static int __init msm_pm_init(void)
 		__raw_writel(val, (MSM_CFG_CTL_BASE + 0x38));
 
 		l2x0_base_addr = MSM_L2CC_BASE;
+		spm0_base_addr = MSM_SAW0_BASE;
+		spm1_base_addr = MSM_SAW1_BASE;
+		spm2_base_addr = MSM_SAW2_BASE;
+		spm3_base_addr = MSM_SAW3_BASE;
 	}
+
+	apps_pwr_dwn   = APPS_PWRDOWN;
+	idle_v7_start_ptr = virt_start_ptr;
+	pm_write_smem_data = (void *)msm_pm_smem_data;
 
 #ifdef CONFIG_MSM_MEMORY_LOW_POWER_MODE
 	/* The wakeup_reason field is overloaded during initialization time
