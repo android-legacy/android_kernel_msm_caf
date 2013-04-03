@@ -1002,7 +1002,7 @@ static int msm_pm_power_collapse
 
 	if (saved_acpuclk_rate == 0) {
 		msm_pm_config_hw_after_power_up();
-		goto power_collapse_early_exit;
+		goto acpu_switch_fail;
 	}
 
 	/* save the AHB clock registers */
@@ -1229,6 +1229,11 @@ static int msm_pm_power_collapse
 		msm_cpr_ops->cpr_resume();
 
 	return 0;
+
+acpu_switch_fail:
+	msm_pm_irq_extns->exit_sleep1(msm_pm_smem_data->irq_mask,
+		msm_pm_smem_data->wakeup_reason,
+		msm_pm_smem_data->pending_irqs);
 
 power_collapse_early_exit:
 	/* Enter PWRC_EARLY_EXIT */
