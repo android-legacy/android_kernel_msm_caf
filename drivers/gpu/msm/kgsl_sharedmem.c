@@ -613,8 +613,15 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		if (len < page_size)
 			page_size = PAGE_SIZE;
 
+		/*
+		 * Don't do some of the more aggressive memory recovery
+		 * techniques for large order allocations
+		 */
 		if (page_size != PAGE_SIZE)
-			gfp_mask |= __GFP_COMP;
+			gfp_mask |= __GFP_COMP | __GFP_NORETRY |
+				__GFP_NO_KSWAPD | __GFP_NOWARN;
+		else
+			gfp_mask |= GFP_KERNEL | __GFP_NORETRY;
 
 		page = alloc_pages(gfp_mask, get_order(page_size));
 
