@@ -1853,15 +1853,17 @@ _adreno_ft(struct kgsl_device *device,
 		}
 	}
 
-	/* Do not try the reply if hang is due to a pagefault */
-	if (adreno_context->pagefault) {
-		if ((ft_data->context_id == adreno_context->id) &&
-			(ft_data->global_eop == adreno_context->pagefault_ts)) {
-			ft_data->ft_policy &= ~KGSL_FT_REPLAY;
-			KGSL_FT_ERR(device, "MMU fault skipping replay\n");
-		}
+	/*
+	 * Extract valid contents from rb which can still be executed after
+	 * hang
+	 */
+	adreno_ringbuffer_extract(rb, ft_data);
 
-		adreno_context->pagefault = 0;
+	/* If long IB detected do not attempt replay of bad cmds */
+	if (long_ib) {
+		ft_data->status = 1;
+		_adreno_debug_ft_info(device, ft_data);
+		goto play_good_cmds;
 	}
 
 	if ((ft_data->ft_policy & KGSL_FT_DISABLE) ||
