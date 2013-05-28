@@ -194,10 +194,10 @@ static inline int kgsl_memdesc_is_global(const struct kgsl_memdesc *memdesc)
 static inline unsigned int
 kgsl_memdesc_protflags(const struct kgsl_memdesc *memdesc)
 {
-	unsigned int protflags = GSL_PT_PAGE_RV;
-	if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
-		protflags |= GSL_PT_PAGE_WV;
-	return protflags;
+        unsigned int protflags = GSL_PT_PAGE_RV;
+        if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
+                protflags |= GSL_PT_PAGE_WV;
+        return protflags;
 }
 
 static inline int
