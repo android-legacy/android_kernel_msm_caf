@@ -38,6 +38,7 @@
 
 /* General allocation hints */
 #define KGSL_MEMFLAGS_GPUREADONLY 0x01000000
+#define KGSL_MEMFLAGS_USE_CPU_MAP 0x10000000
 
 /* Memory caching hints */
 #define KGSL_CACHEMODE_MASK 0x0C000000
