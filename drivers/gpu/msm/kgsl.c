@@ -702,22 +702,32 @@ static int kgsl_resume_device(struct kgsl_device *device)
 	KGSL_PWR_WARN(device, "resume start\n");
 	mutex_lock(&device->mutex);
 	if (device->state == KGSL_STATE_SUSPEND) {
+<<<<<<< HEAD
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 		complete_all(&device->hwaccess_gate);
 	} else if (device->state != KGSL_STATE_INIT) {
+=======
+		complete_all(&device->hwaccess_gate);
+	} else {
+>>>>>>> msm: kgsl: Always resume the GPU regardless of its state
 		/*
 		 * This is an error situation,so wait for the device
 		 * to idle and then put the device to SLUMBER state.
 		 * This will put the device to the right state when
 		 * we resume.
 		 */
+<<<<<<< HEAD
 		if (device->state == KGSL_STATE_ACTIVE)
 			device->ftbl->idle(device);
+=======
+		device->ftbl->idle(device);
+>>>>>>> msm: kgsl: Always resume the GPU regardless of its state
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_SLUMBER);
 		kgsl_pwrctrl_sleep(device);
 		KGSL_PWR_ERR(device,
 			"resume invoked without a suspend\n");
 	}
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 
 	mutex_unlock(&device->mutex);
