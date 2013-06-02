@@ -1996,10 +1996,18 @@ static void l2cap_ertm_send_sframe(struct sock *sk,
 		pi->conn_state &= ~L2CAP_CONN_SEND_FBIT;
 	}
 
+<<<<<<< HEAD
 	if (control->super == L2CAP_SFRAME_RR)
 		pi->conn_state &= ~L2CAP_CONN_SENT_RNR;
 	else if (control->super == L2CAP_SFRAME_RNR)
 		pi->conn_state |= L2CAP_CONN_SENT_RNR;
+=======
+	if (conn->mtu < L2CAP_HDR_SIZE + L2CAP_CMD_HDR_SIZE)
+		return NULL;
+
+	len = L2CAP_HDR_SIZE + L2CAP_CMD_HDR_SIZE + dlen;
+	count = min_t(unsigned int, conn->mtu, len);
+>>>>>>> Bluetooth: Fix crash in l2cap_build_cmd() with small MTU
 
 	if (control->super != L2CAP_SFRAME_SREJ) {
 		pi->last_acked_seq = control->reqseq;
