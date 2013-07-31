@@ -3423,7 +3423,15 @@ static inline void hci_le_ltk_request_evt(struct hci_dev *hdev,
 
 	memcpy(cp.ltk, ltk->val, sizeof(ltk->val));
 	cp.handle = cpu_to_le16(conn->handle);
+<<<<<<< HEAD
 	conn->pin_length = ltk->pin_len;
+=======
+
+	if (ltk->authenticated)
+		conn->pending_sec_level = BT_SECURITY_HIGH;
+	else
+		conn->pending_sec_level = BT_SECURITY_MEDIUM;
+>>>>>>> Bluetooth: Fix security level for peripheral role
 
 	hci_send_cmd(hdev, HCI_OP_LE_LTK_REPLY, sizeof(cp), &cp);
 
