@@ -462,3 +462,9 @@ extern struct platform_device bmdm_8064_device;
 
 extern struct platform_device sglte_mdm_8064_device;
 extern struct platform_device sglte2_qsc_8064_device;
+#ifdef CONFIG_ANDROID_PERSISTENT_RAM
+void __init add_persistent_ram(void);
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+extern struct platform_device ram_console_device;
+#endif
+#endif
