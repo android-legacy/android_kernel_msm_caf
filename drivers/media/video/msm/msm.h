@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -587,6 +587,8 @@ int msm_server_close_client(int idx);
 int msm_cam_server_open_mctl_session(struct msm_cam_v4l2_device *pcam,
 	int *p_active);
 int msm_cam_server_close_mctl_session(struct msm_cam_v4l2_device *pcam);
+extern void sensor_native_control(void __user *arg);
+extern void sensor_native_control_front(void __user *arg);
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */
