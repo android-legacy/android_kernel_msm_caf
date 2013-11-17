@@ -3469,13 +3469,8 @@ static struct msm_camera_gpio_conf gpio_conf_sr300pc20 = {
 #endif
 
 static struct camera_vreg_t msm_cam_vreg[] = {
-        {"ldo17", REG_LDO, 2800000, 2800000, 0},
         {"ldo6", REG_LDO, 1200000, 1200000, 0},
-/*
-        {"msme1", REG_LDO, 1800000, 1800000, 0},
-        {"gp2", REG_LDO, 3300000, 3300000, 0},
-        {"usb2", REG_LDO, 1800000, 1800000, 0},
-*/
+        {"ldo17", REG_LDO, 2800000, 2800000, 0},
 };
 
 #ifdef CONFIG_SR300PC20
