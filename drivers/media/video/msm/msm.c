@@ -58,7 +58,6 @@ MODULE_PARM_DESC(msm_camera_v4l2_nr, "videoX start number, -1 is autodetect");
 static long msm_server_send_v4l2_evt(void *evt);
 static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	unsigned int notification, void *arg);
-
 int msm_camera_antibanding =  CAMERA_ANTIBANDING_50HZ; /*default*/
 
 int msm_camera_antibanding_get (void) {
@@ -3570,27 +3569,6 @@ failure:
 	return rc;
 }
 EXPORT_SYMBOL(msm_sensor_register);
-
-#if defined CONFIG_S5K4ECGX
-static ssize_t camera_rear_flash(struct device *dev,
-   struct device_attribute *attr, const char *buf,
-   size_t count)
-{
-   if (buf[0] == '0')
-   {
-	   cam_flash_off(FLASH_MODE_LIGHT);
-	   printk(KERN_ERR "[%s]: off!\n", __func__);
-   }
-   else
-   {
-	   cam_flash_torch_on(FLASH_MODE_LIGHT);
-	   printk(KERN_ERR "[%s]: on!\n", __func__);
-   }
-   return count;
-}
-static DEVICE_ATTR(rear_flash, 0664,
-   NULL, camera_rear_flash);
-#endif
 
 static ssize_t rear_camera_type_show(struct device *dev,
     struct device_attribute *attr, char *buf,
