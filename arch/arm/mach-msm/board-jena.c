@@ -1699,7 +1699,6 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 #define MSM8x25_MSM_FB_SIZE	0x1C2000
 #endif
 #endif
-#endif
 
 #ifdef CONFIG_ION_MSM
 #define MSM_ION_HEAP_NUM        4
