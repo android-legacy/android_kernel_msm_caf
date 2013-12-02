@@ -1690,13 +1690,14 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 #define MSM7x25A_MSM_PMEM_ADSP_SIZE      0xB91000 //12MB
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-#define MSM_FB_SIZE             0x4BF000
+#define MSM_FB_SIZE		0x1C2000
 #define MSM7x25A_MSM_FB_SIZE    0x1C2000
-#define MSM8x25_MSM_FB_SIZE     0x5FA000
+#define MSM8x25_MSM_FB_SIZE	0x1C2000
 #else
-#define MSM_FB_SIZE             0x32A000
-#define MSM7x25A_MSM_FB_SIZE    0x12C000
-#define MSM8x25_MSM_FB_SIZE     0x3FC000
+#define MSM_FB_SIZE		0x1C2000
+#define MSM7x25A_MSM_FB_SIZE	0x12C000
+#define MSM8x25_MSM_FB_SIZE	0x1C2000
+#endif
 #endif
 #endif
 
