@@ -194,6 +194,14 @@
 #define MSM_CAM_IOCTL_ISPIF_IO_CFG \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 54, struct ispif_cfg_data *)
 
+struct ioctl_native_cmd {
+        unsigned short mode;
+        unsigned short address;
+        unsigned short value_1;
+        unsigned short value_2;
+        unsigned short value_3;
+};
+
 struct msm_mctl_pp_cmd {
 	int32_t  id;
 	uint16_t length;
@@ -816,10 +824,23 @@ struct msm_snapshot_pp_status {
 #define CFG_START_STREAM              44
 #define CFG_STOP_STREAM               45
 #define CFG_GET_CSI_PARAMS            46
+#define CFG_POWER_UP                  47
+#define CFG_POWER_DOWN                48
+#define CFG_WRITE_I2C_ARRAY           49
+#define CFG_READ_I2C_ARRAY            50
+#define CFG_PCLK_CHANGE               51
+#define CFG_CONFIG_VREG_ARRAY         52
+#define CFG_CONFIG_CLK_ARRAY          53
+#define CFG_GPIO_OP                   54
+#define CFG_SET_VISION_MODE           55
+#define CFG_SET_VISION_AE             56
+#define CFG_HDR_UPDATE                57
+#define CFG_ACTUAOTOR_REG_INIT        58
+#define CFG_MAX                       59
+#define CFG_SET_PREVIEW_SIZE          47
+#define CFG_SET_PICTURE_SIZE          48
 #define CFG_SENSOR_PIP_SET_CAM_MODE   47
 #define CFG_SENSOR_PIP_GET_CAM_MODE   48
-#define CFG_MAX			49
-
 
 #define MOVE_NEAR	0
 #define MOVE_FAR	1
@@ -836,20 +857,125 @@ struct msm_snapshot_pp_status {
 #define SENSOR_QVGA_SIZE		2
 #define SENSOR_INVALID_SIZE		3
 
-#define CAMERA_EFFECT_OFF		0
-#define CAMERA_EFFECT_MONO		1
-#define CAMERA_EFFECT_NEGATIVE		2
-#define CAMERA_EFFECT_SOLARIZE		3
-#define CAMERA_EFFECT_SEPIA		4
-#define CAMERA_EFFECT_POSTERIZE		5
-#define CAMERA_EFFECT_WHITEBOARD	6
-#define CAMERA_EFFECT_BLACKBOARD	7
-#define CAMERA_EFFECT_AQUA		8
-#define CAMERA_EFFECT_EMBOSS		9
-#define CAMERA_EFFECT_SKETCH		10
-#define CAMERA_EFFECT_NEON		11
-#define CAMERA_EFFECT_MAX		12
+#define CAMERA_EFFECT_OFF                0
+#define CAMERA_EFFECT_MONO                1
+#define CAMERA_EFFECT_NEGATIVE                2
+#define CAMERA_EFFECT_SOLARIZE                3
+#define CAMERA_EFFECT_SEPIA                4
+#define CAMERA_EFFECT_POSTERIZE                5
+#define CAMERA_EFFECT_WHITEBOARD        6
+#define CAMERA_EFFECT_BLACKBOARD        7
+#define CAMERA_EFFECT_AQUA                8
+#define CAMERA_EFFECT_EMBOSS                9
+#define CAMERA_EFFECT_SKETCH                10
+#define CAMERA_EFFECT_NEON                11
+#define CAMERA_EFFECT_WASHED                12
+#define CAMERA_EFFECT_VINTAGE_WARM        13
+#define CAMERA_EFFECT_VINTAGE_COLD        14
+#define CAMERA_EFFECT_POINT_COLOR_1        15
+#define CAMERA_EFFECT_POINT_COLOR_2        16
+#define CAMERA_EFFECT_POINT_COLOR_3        17
+#define CAMERA_EFFECT_POINT_COLOR_4        18
+#define CAMERA_EFFECT_MAX                19
 
+#define CAMERA_WHITE_BALANCE_AUTO                                1
+#define CAMERA_WHITE_BALANCE_INCANDESCENT                3
+#define CAMERA_WHITE_BALANCE_FLUORESCENT                4
+#define CAMERA_WHITE_BALANCE_DAYLIGHT                        5
+#define CAMERA_WHITE_BALANCE_CLOUDY_DAYLIGHT        6
+
+#define CAMERA_FLASH_OFF                0
+#define CAMERA_FLASH_ON                2
+#define CAMERA_FLASH_AUTO                1
+#define CAMERA_FLASH_TORCH        3
+
+#define CAMERA_EV_M4        0
+#define CAMERA_EV_M3        1
+#define CAMERA_EV_M2        2
+#define CAMERA_EV_M1        3
+#define CAMERA_EV_DEFAULT        4
+#define CAMERA_EV_P1                5
+#define CAMERA_EV_P2                6
+#define CAMERA_EV_P3                7
+#define CAMERA_EV_P4                8
+
+#define CAMERA_ISO_MODE_AUTO        0
+#define CAMERA_ISO_MODE_DEBLUR        1        //kk0704.park :: add ISO value to match HAL value
+#define CAMERA_ISO_MODE_50        2
+#define CAMERA_ISO_MODE_100        3
+#define CAMERA_ISO_MODE_200        4
+#define CAMERA_ISO_MODE_400        5
+#define CAMERA_ISO_MODE_800        6
+
+#define CAMERA_AVERAGE                        0
+#define CAMERA_CENTER_WEIGHT        1
+#define CAMERA_SPOT                        2
+
+#define CAMERA_SCENE_OFF                0
+#define CAMERA_SCENE_AUTO                1
+#define CAMERA_SCENE_LANDSCAPE        2
+#define CAMERA_SCENE_BEACH                4
+#define CAMERA_SCENE_SUNSET                5
+#define CAMERA_SCENE_NIGHT                6
+#define CAMERA_SCENE_PORTRAIT        7
+#define CAMERA_SCENE_AGAINST_LIGHT        8
+#define CAMERA_SCENE_SPORT                9
+#define CAMERA_SCENE_CANDLE                12
+#define CAMERA_SCENE_FIRE                13
+#define CAMERA_SCENE_PARTY                14
+#define CAMERA_SCENE_DAWN                19
+#define CAMERA_SCENE_FALL                20
+#define CAMERA_SCENE_TEXT                21
+
+#define CAMERA_AF_MACRO                1
+#define CAMERA_AF_AUTO                2
+
+/*native cmd code*/
+#define EXT_CAM_AF                1
+#define EXT_CAM_FLASH_STATUS        2
+#define EXT_CAM_FLASH_MODE        3
+#define EXT_CAM_EV        4
+#define EXT_CAM_SCENE_MODE        5
+#define EXT_CAM_ISO        6
+#define EXT_CAM_METERING                7
+#define EXT_CAM_WB        8
+#define EXT_CAM_EFFECT        9
+#define EXT_CAM_FOCUS        10
+#define EXT_CAM_PREVIEW_SIZE                11
+#define EXT_CAM_MOVIE_MODE                12
+#define EXT_CAM_DTP_TEST                13
+#define EXT_CAM_SET_AF_STATUS                14
+#define EXT_CAM_GET_AF_STATUS                15
+#define EXT_CAM_GET_AF_RESULT                16
+#define EXT_CAM_SET_TOUCHAF_POS                17
+#define EXT_CAM_SET_AE_AWB                18
+#define EXT_CAM_START_CAPTURE                19
+#define EXT_CAM_QUALITY                20
+#define EXT_CAM_ZOOM                21
+#define EXT_CAM_FD_MODE                22
+#define EXT_CAM_SET_AF_STOP                23
+#define EXT_CAM_SET_ANTI_SHAKE                24
+#define EXT_CAM_SET_WDR                        25
+#define EXT_CAM_SET_BEAUTY_SHOT                26
+#define EXT_CAM_EXIF                        27
+#define EXT_CAM_SET_JPEG_SIZE                28
+#define EXT_CAM_SET_PREVIEW_SIZE        29
+#define EXT_CAM_SET_AF_MODE                30
+#define EXT_CAM_SET_FPS                31
+#define EXT_CAM_GET_FLASH_STATUS        32
+#define EXT_CAM_SET_HDR        33
+#define EXT_CAM_START_HDR        34
+#define EXT_CAM_START_AE_AWB_LOCK        35
+#define EXT_CAM_SET_VDIS        36
+#define EXT_CAM_VT_MODE                37
+#define EXT_CAM_GET_LUX                38
+#define EXT_CAM_SET_FACE_ZOOM                39
+#define EXT_CAM_SET_RECORD_SIZE                40
+#define EXT_CAM_GET_AE_AWB_LOCK                41
+#define EXT_CAM_UPDATE_FW                42
+#define EXT_CAM_ANTI_BANDING                43
+#define EXT_CAM_SAMSUNG_CAMERA                44
+#define EXT_CAM_SET_FLIP                45
 /* QRD */
 #define CAMERA_EFFECT_BW		10
 #define CAMERA_EFFECT_BLUISH	12
@@ -1542,6 +1668,13 @@ struct flash_ctrl_data {
 #define GET_SNAPSHOT_FPS		5
 #define GET_SNAPSHOT_MAX_EP_LINE_CNT	6
 
+#define        EXIF_EXPOSURE_TIME                0
+#define        EXIF_TV                                        1
+#define        EXIF_AV                                        2
+#define        EXIF_BV                                        3
+#define        EXIF_EBV                                4
+#define        EXIF_ISO                                5
+#define        EXIF_FLASH                                6
 struct msm_camsensor_info {
 	char name[MAX_SENSOR_NAME];
 	uint8_t flash_enabled;
