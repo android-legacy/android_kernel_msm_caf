@@ -161,6 +161,12 @@ void msm_camera_free_mctl(uint32_t handle)
 		pr_err("%s: invalid free handle\n", __func__);
 }
 
+int msm_camera_antibanding =  CAMERA_ANTIBANDING_50HZ; /*default*/
+
+int msm_camera_antibanding_get (void) {
+        return msm_camera_antibanding;
+}
+
 /* callback function from all subdevices of a msm_cam_v4l2_device */
 static void msm_cam_v4l2_subdev_notify(struct v4l2_subdev *sd,
 				unsigned int notification, void *arg)
