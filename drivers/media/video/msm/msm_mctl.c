@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,6 +189,7 @@ static int msm_mctl_set_vfe_output_mode(struct msm_cam_media_controller
 	return rc;
 }
 
+
 /* called by the server or the config nodes to handle user space
 	commands*/
 static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
@@ -356,19 +357,14 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		break;
 	}
 
-	case MSM_CAM_IOCTL_FLASH_CTRL: 
-	/*
-	{
+	case MSM_CAM_IOCTL_FLASH_CTRL: {
 		struct flash_ctrl_data flash_info;
 		if (copy_from_user(&flash_info, argp, sizeof(flash_info))) {
 			ERR_COPY_FROM_USER();
 			rc = -EFAULT;
-		} else {
-			rc = msm_flash_ctrl(p_mctl->sdata, &flash_info);
 		}
 		break;
 	}
-	*/ //Don't use qcom flash
 	case MSM_CAM_IOCTL_PICT_PP:
 		rc = msm_mctl_set_pp_key(p_mctl, (void __user *)arg);
 		break;
