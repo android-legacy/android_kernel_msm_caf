@@ -47,14 +47,11 @@ config OV5647
 	depends on MSM_CAMERA
 	---help---
 	  OV 5M Bayer Sensor with AutoFocus
-
-config SR300PC20
-	bool "Sensor sr300pc20 (3M)"
+config OV5648
+	bool "Sensor ov5648 (BAYER 5M)"
 	depends on MSM_CAMERA
-	default n
 	---help---
-	  SiliconFile 3M Sensor
-
+	  OV 5M Bayer Sensor with AutoFocus
 config AD5046_ACT
 	bool "Lens actuator ad5046"
 	depends on MSM_CAMERA && OV5647
