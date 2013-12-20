@@ -2331,11 +2331,6 @@ int adreno_idle(struct kgsl_device *device)
 		adreno_dev->gpudev->reg_rbbm_status << 2,
 		0x00000000, 0x80000000);
 
-
-	/* If the device clock is off, it's already idle. Don't wake it up */
-	if (!kgsl_pwrctrl_isenabled(device))
-		return 0;
-
 retry:
 	/* First, wait for the ringbuffer to drain */
 	if (adreno_ringbuffer_drain(device, prev_reg_val))
@@ -3152,8 +3147,8 @@ static long adreno_ioctl(struct kgsl_device_private *dev_priv,
 
 static inline s64 adreno_ticks_to_us(u32 ticks, u32 gpu_freq)
 {
-	s64 ticksus = (s64)ticks*1000000;
-	return div_u64(ticksus, gpu_freq);
+	gpu_freq /= 1000000;
+	return ticks / gpu_freq;
 }
 
 static void adreno_power_stats(struct kgsl_device *device,
