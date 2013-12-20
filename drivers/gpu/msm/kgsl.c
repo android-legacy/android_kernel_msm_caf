@@ -615,8 +615,6 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 	private->pid = task_tgid_nr(current);
 	private->mem_rb = RB_ROOT;
 
-	idr_init(&private->mem_idr);
-
 	if (kgsl_mmu_enabled())
 	{
 		unsigned long pt_name;
@@ -645,7 +643,7 @@ kgsl_put_process_private(struct kgsl_device *device,
 			 struct kgsl_process_private *private)
 {
 	struct kgsl_mem_entry *entry = NULL;
-	int next = 0;
+	struct rb_node *node;
 
 	if (!private)
 		return;
@@ -661,21 +659,19 @@ kgsl_put_process_private(struct kgsl_device *device,
 	list_del(&private->list);
 
 	while (1) {
-		rcu_read_lock();
-		entry = idr_get_next(&private->mem_idr, &next);
-		rcu_read_unlock();
-		if (entry == NULL)
+		spin_lock(&private->mem_lock);
+		node = rb_first(&private->mem_rb);
+		if (!node) {
+			spin_unlock(&private->mem_lock);
 			break;
+		}
+		entry = rb_entry(node, struct kgsl_mem_entry, node);
+
+		rb_erase(&entry->node, &private->mem_rb);
+		spin_unlock(&private->mem_lock);
 		kgsl_mem_entry_detach_process(entry);
-		/*
-		 * Always start back at the beginning, to
-		 * ensure all entries are removed,
-		 * like list_for_each_entry_safe.
-		 */
-		next = 0;
 	}
 	kgsl_mmu_putpagetable(private->pagetable);
-	idr_destroy(&private->mem_idr);
 	kfree(private);
 unlock:
 	mutex_unlock(&kgsl_driver.process_mutex);
@@ -762,6 +758,13 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 
 	dev_priv->device = device;
 	filep->private_data = dev_priv;
+
+	/* Get file (per process) private struct */
+	dev_priv->process_priv = kgsl_get_process_private(dev_priv);
+	if (dev_priv->process_priv ==  NULL) {
+		result = -ENOMEM;
+		goto err_freedevpriv;
+	}
 
 	mutex_lock(&device->mutex);
 	kgsl_check_suspended(device);
