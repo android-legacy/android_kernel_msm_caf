@@ -1,4 +1,7 @@
-/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+#ifdef CONFIG_MSM_CAMERA_LEGACY
+#include "media/msm_camera_legacy.h"
+#else
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2300,3 +2303,4 @@ struct intf_mctl_mapping_cfg {
 	(handle |= (0x1 << 7) | (data & 0x7F))
 
 #endif /* __LINUX_MSM_CAMERA_H */
+#endif /* CONFIG_MSM_CAMERA_LEGACY */
