@@ -2015,7 +2015,7 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 	unsigned long flag;
 	struct mdp_hist_mgmt *mgmt = NULL;
 	int i, ret;
-	int vsync_isr;
+	int vsync_isr ,disabled_clocks;
 	/* Ensure all the register write are complete */
 	mb();
 
