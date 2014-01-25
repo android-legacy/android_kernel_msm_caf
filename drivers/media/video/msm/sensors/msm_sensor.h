@@ -24,12 +24,11 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <mach/camera.h>
-#include <linux/gpio.h>
+#include <mach/gpio.h>
 #include <media/msm_camera.h>
 #include <media/v4l2-subdev.h>
 #include "msm_camera_i2c.h"
 #include "msm_camera_eeprom.h"
-#include "msm_sensor.h"
 #define Q8  0x00000100
 #define Q10 0x00000400
 
@@ -65,7 +64,6 @@ struct msm_sensor_output_reg_addr_t {
 struct msm_sensor_id_info_t {
 	uint16_t sensor_id_reg_addr;
 	uint16_t sensor_id;
-	uint16_t sensor_version;
 };
 
 struct msm_sensor_exp_gain_info_t {
@@ -114,8 +112,6 @@ struct msm_sensor_v4l2_ctrl_info_t {
 struct msm_sensor_fn_t {
 	void (*sensor_start_stream) (struct msm_sensor_ctrl_t *);
 	void (*sensor_stop_stream) (struct msm_sensor_ctrl_t *);
-	void (*sensor_preview_mode) (struct msm_sensor_ctrl_t *);
-	void (*sensor_capture_mode) (struct msm_sensor_ctrl_t *);
 	void (*sensor_group_hold_on) (struct msm_sensor_ctrl_t *);
 	void (*sensor_group_hold_off) (struct msm_sensor_ctrl_t *);
 
@@ -202,7 +198,6 @@ struct msm_sensor_ctrl_t {
 	enum msm_sensor_state sensor_state;
 };
 
-
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl);
 void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl);
 void msm_sensor_group_hold_on(struct msm_sensor_ctrl_t *s_ctrl);
@@ -268,18 +263,6 @@ long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 
 int32_t msm_sensor_get_csi_params(struct msm_sensor_ctrl_t *s_ctrl,
 		struct csi_lane_params_t *sensor_output_info);
-
-int32_t msm_sensor_set_preview_size
-        (struct msm_sensor_ctrl_t *s_ctrl, int index);
-
-int32_t msm_sensor_set_picture_size
-        (struct msm_sensor_ctrl_t *s_ctrl, int index);
-
-int32_t msm_sensor_enable_i2c_mux
-        (struct msm_camera_i2c_conf *i2c_conf);
-
-int32_t msm_sensor_disable_i2c_mux
-        (struct msm_camera_i2c_conf *i2c_conf);
 
 struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd);
 

@@ -19,4 +19,3 @@ obj-$(CONFIG_OV7692) += ov7692_v4l2.o
 obj-$(CONFIG_OV7695) += ov7695_v4l2.o
 obj-$(CONFIG_OV7695_RAW) += ov7695_raw_v4l2.o
 obj-$(CONFIG_VX6953) += vx6953.o
-obj-$(CONFIG_OV9724) += ov9724_v4l2.o
