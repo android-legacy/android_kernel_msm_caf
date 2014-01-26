@@ -65,6 +65,20 @@ struct msm_camera_device_platform_data {
 	struct msm_bus_scale_pdata *cam_bus_scale_table;
 };
 
+enum msm_camera_csi_data_format {
+        CSI_8BIT,
+        CSI_10BIT,
+        CSI_12BIT,
+};
+
+struct msm_camera_csi_params {
+        enum msm_camera_csi_data_format data_format;
+        uint8_t lane_cnt;
+        uint8_t lane_assign;
+        uint8_t settle_cnt;
+        uint8_t dpcm_scheme;
+};
+
 #ifdef CONFIG_SENSORS_MT9T013
 struct msm_camera_legacy_device_platform_data {
 	int sensor_reset;

@@ -19,6 +19,7 @@
 #include <linux/io.h>
 #include <mach/clk.h>
 #include <linux/clk.h>
+#include <linux/msm_ion.h>
 
 #include <media/v4l2-event.h>
 #include <media/vcap_v4l2.h>
