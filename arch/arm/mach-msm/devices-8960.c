@@ -4473,11 +4473,6 @@ static struct resource sglte_resources[] = {
 	},
 };
 
-struct platform_device msm_gpio_device = {
-	.name = "msmgpio",
-	.id = -1,
-};
-
 struct platform_device mdm_sglte_device = {
 	.name		= "mdm2_modem",
 	.id		= -1,
