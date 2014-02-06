@@ -43,7 +43,7 @@ static void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address)
 #ifdef CONFIG_MSM_SCM
 static int __devinit msm_pm_tz_boot_init(void)
 {
-	unsigned int flag = 0;
+	int flag = 0;
 	if (num_possible_cpus() == 1)
 		flag = SCM_FLAG_WARMBOOT_CPU0;
 	else if (num_possible_cpus() == 2)
@@ -54,7 +54,7 @@ static int __devinit msm_pm_tz_boot_init(void)
 	else
 		__WARN();
 
-	return scm_set_boot_addr(virt_to_phys(msm_pm_boot_entry), flag);
+	return scm_set_boot_addr((void *)virt_to_phys(msm_pm_boot_entry), flag);
 }
 
 static void msm_pm_config_tz_before_pc(unsigned int cpu,
@@ -158,13 +158,17 @@ int __devinit msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			msm_pm_boot_after_pc
 				= msm_pm_config_rst_vector_after_pc;
 		} else {
+			uint32_t mpa5_boot_remap_addr[2] = {0x34, 0x4C};
+			uint32_t mpa5_cfg_ctl[2] = {0x30, 0x48};
+
 			warm_boot_ptr = ioremap_nocache(
 						MSM8625_WARM_BOOT_PHYS, SZ_64);
 			ret = msm_pm_boot_reset_vector_init(warm_boot_ptr);
 
 			entry = virt_to_phys(msm_pm_boot_entry);
 
-			/* Below sequence is a work around for cores
+			/*
+			 * Below sequence is a work around for cores
 			 * to come out of GDFS properly on 8625 target.
 			 * On 8625 while cores coming out of GDFS observed
 			 * the memory corruption at very first memory read.
@@ -199,7 +203,8 @@ int __devinit msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 			/* 0x34 */
 			msm_pm_reset_vector[13] = entry;
 
-			/* Here upper 16bits[16:31] used by CORE1
+			/*
+			 * Here upper 16bits[16:31] used by CORE1
 			 * lower 16bits[0:15] used by CORE0
 			 */
 			entry = (MSM8625_WARM_BOOT_PHYS |
@@ -207,14 +212,12 @@ int __devinit msm_pm_boot_init(struct msm_pm_boot_platform_data *pdata)
 
 			/* write 'entry' to boot remapper register */
 			__raw_writel(entry, (pdata->v_addr +
-						MPA5_BOOT_REMAP_ADDR));
+						mpa5_boot_remap_addr[0]));
 
-			/* Enable boot remapper for C0 [bit:25th] */
-			__raw_writel(readl_relaxed(pdata->v_addr +
-					MPA5_CFG_CTL_REG) | BIT(25),
-					pdata->v_addr + MPA5_CFG_CTL_REG);
-
-			/* Enable boot remapper for C1 [bit:26th] */
+			/*
+			 * Enable boot remapper for C0 [bit:25th]
+			 * Enable boot remapper for C1 [bit:26th]
+			 */
 			__raw_writel(readl_relaxed(pdata->v_addr +
 					mpa5_cfg_ctl[0]) | (0x3 << 25),
 					pdata->v_addr + mpa5_cfg_ctl[0]);
