@@ -575,6 +575,7 @@ a2xx_getchipid(struct kgsl_device *device)
 {
 	unsigned int chipid = 0;
 	unsigned int coreid, majorid, minorid, patchid, revid;
+        uint32_t soc_platform_version = socinfo_get_version();
 	struct kgsl_device_platform_data *pdata =
 		kgsl_device_get_drvdata(device);
 
