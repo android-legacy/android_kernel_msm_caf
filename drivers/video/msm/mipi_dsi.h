@@ -344,30 +344,12 @@ void mipi_dsi_unprepare_clocks(void);
 void mipi_dsi_ahb_ctrl(u32 enable);
 void mipi_dsi_phy_ctrl(int on);
 #else
-static inline void mipi_dsi_clk_enable(void)
-{
-	/* empty */
-}
-void mipi_dsi_clk_disable(void)
-{
-	/* empty */
-}
-void mipi_dsi_prepare_clocks(void)
-{
-	/* empty */
-}
-void mipi_dsi_unprepare_clocks(void)
-{
-	/* empty */
-}
-void mipi_dsi_ahb_ctrl(u32 enable)
-{
-	/* empty */
-}
-void mipi_dsi_phy_ctrl(int on)
-{
-	/* empty */
-}
+void mipi_dsi_clk_enable(void);
+void mipi_dsi_clk_disable(void);
+void mipi_dsi_prepare_clocks(void);
+void mipi_dsi_unprepare_clocks(void);
+void mipi_dsi_ahb_ctrl(u32 enable);
+void mipi_dsi_phy_ctrl(int on);
 #endif
 
 void cont_splash_clk_ctrl(int enable);
