@@ -138,6 +138,16 @@ static inline int freezer_should_skip(struct task_struct *p)
 	__retval;							\
 })
 
+/* Like schedule_timeout_interruptible(), but should not block the freezer. */
+#define freezable_schedule_timeout_interruptible(timeout)		\
+({									\
+	long __retval;							\
+	freezer_do_not_count();						\
+	__retval = schedule_timeout_interruptible(timeout);		\
+	freezer_count();						\
+	__retval;							\
+})
+
 /*
  * Freezer-friendly wrappers around wait_event_interruptible(),
  * wait_event_killable() and wait_event_interruptible_timeout(), originally
