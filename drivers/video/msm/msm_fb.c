@@ -2137,13 +2137,17 @@ static void msm_fb_commit_wq_handler(struct work_struct *work)
 	mfd = container_of(work, struct msm_fb_data_type, commit_work);
 	fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
 	info = &fb_backup->info;
+#ifdef CONFIG_FB_MSM_OVERLAY
 	if (fb_backup->disp_commit.flags &
 		MDP_DISPLAY_COMMIT_OVERLAY) {
 			mdp4_overlay_commit(info);
 	} else {
+#endif
 		var = &fb_backup->disp_commit.var;
 		msm_fb_pan_display_sub(var, info);
+#ifdef CONFIG_FB_MSM_OVERLAY
 	}
+#endif
 	mutex_lock(&mfd->sync_mutex);
 	mfd->is_committing = 0;
 	complete_all(&mfd->commit_comp);

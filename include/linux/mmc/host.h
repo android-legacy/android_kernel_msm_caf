@@ -138,11 +138,6 @@ struct mmc_host_ops {
 	void	(*enable_preset_value)(struct mmc_host *host, bool enable);
 	int	(*select_drive_strength)(unsigned int max_dtr, int host_drv, int card_drv);
 	void	(*hw_reset)(struct mmc_host *host);
-	unsigned long (*get_max_frequency)(struct mmc_host *host);
-	unsigned long (*get_min_frequency)(struct mmc_host *host);
-	int	(*stop_request)(struct mmc_host *host);
-	unsigned int	(*get_xfer_remain)(struct mmc_host *host);
-	int     (*notify_load)(struct mmc_host *, enum mmc_load);
 };
 
 struct mmc_card;
@@ -151,38 +146,11 @@ struct device;
 struct mmc_async_req {
 	/* active mmc request */
 	struct mmc_request	*mrq;
-	unsigned int cmd_flags; /* copied from struct request */
-
 	/*
 	 * Check error status of completed mmc request.
 	 * Returns 0 if success otherwise non zero.
 	 */
 	int (*err_check) (struct mmc_card *, struct mmc_async_req *);
-	/* Reinserts request back to the block layer */
-	void (*reinsert_req) (struct mmc_async_req *);
-	/* update what part of request is not done (packed_fail_idx) */
-	int (*update_interrupted_req) (struct mmc_card *,
-			struct mmc_async_req *);
-};
-
-/**
- * mmc_context_info - synchronization details for mmc context
- * @is_done_rcv		wake up reason was done request
- * @is_new_req		wake up reason was new request
- * @is_waiting_last_req	is true, when 1 request running on the bus and
- *			NULL fetched as second request. MMC_BLK_NEW_REQUEST
- *			notification will wake up mmc thread from waiting.
- * @is_urgent		wake up reason was urgent request
- * @wait		wait queue
- * @lock		lock to protect data fields
- */
-struct mmc_context_info {
-	bool			is_done_rcv;
-	bool			is_new_req;
-	bool			is_waiting_last_req;
-	bool			is_urgent;
-	wait_queue_head_t	wait;
-	spinlock_t		lock;
 };
 
 struct mmc_hotplug {
@@ -239,7 +207,6 @@ struct mmc_host {
 						/* DDR mode at 1.8V */
 #define MMC_CAP_1_2V_DDR	(1 << 12)	/* can support */
 						/* DDR mode at 1.2V */
-#define MMC_CAP_HSDDR		(MMC_CAP_1_8V_DDR | MMC_CAP_1_2V_DDR)
 #define MMC_CAP_POWER_OFF_CARD	(1 << 13)	/* Can power off after boot */
 #define MMC_CAP_BUS_WIDTH_TEST	(1 << 14)	/* CMD14/CMD19 bus width ok */
 #define MMC_CAP_UHS_SDR12	(1 << 15)	/* Host supports UHS SDR12 mode */
@@ -274,17 +241,16 @@ struct mmc_host {
 #define MMC_CAP2_BROKEN_VOLTAGE	(1 << 7)	/* Use the broken voltage */
 #define MMC_CAP2_DETECT_ON_ERR	(1 << 8)	/* On I/O err check card removal */
 #define MMC_CAP2_HC_ERASE_SZ	(1 << 9)	/* High-capacity erase size */
-
 #define MMC_CAP2_PACKED_RD	(1 << 10)	/* Allow packed read */
 #define MMC_CAP2_PACKED_WR	(1 << 11)	/* Allow packed write */
 #define MMC_CAP2_PACKED_CMD	(MMC_CAP2_PACKED_RD | \
 				 MMC_CAP2_PACKED_WR) /* Allow packed commands */
 #define MMC_CAP2_PACKED_WR_CONTROL (1 << 12) /* Allow write packing control */
-
 #define MMC_CAP2_SANITIZE	(1 << 13)		/* Support Sanitize */
+#define MMC_CAP2_BKOPS		    (1 << 14)	/* BKOPS supported */
 #define MMC_CAP2_INIT_BKOPS	    (1 << 15)	/* Need to set BKOPS_EN */
-#define MMC_CAP2_CLK_SCALE	(1 << 16)	/* Allow dynamic clk scaling */
-#define MMC_CAP2_STOP_REQUEST	(1 << 18)	/* Allow stop ongoing request */
+#define MMC_CAP2_POWER_OFF_VCCQ_DURING_SUSPEND	(1 << 16)
+
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 	int			clk_requests;	/* internal reference counter */
@@ -359,7 +325,6 @@ struct mmc_host {
 	struct dentry		*debugfs_root;
 
 	struct mmc_async_req	*areq;		/* active async req */
-	struct mmc_context_info	context_info;	/* async synchronization info */
 
 #ifdef CONFIG_FAIL_MMC_REQUEST
 	struct fault_attr	fail_mmc_request;
@@ -393,7 +358,6 @@ struct mmc_host {
 };
 
 extern struct mmc_host *mmc_alloc_host(int extra, struct device *);
-extern bool mmc_host_may_gate_card(struct mmc_card *);
 extern int mmc_add_host(struct mmc_host *);
 extern void mmc_remove_host(struct mmc_host *);
 extern void mmc_free_host(struct mmc_host *);
@@ -503,14 +467,6 @@ static inline int mmc_host_cmd23(struct mmc_host *host)
 static inline int mmc_boot_partition_access(struct mmc_host *host)
 {
 	return !(host->caps2 & MMC_CAP2_BOOTPART_NOACC);
-}
-
-static inline int mmc_host_uhs(struct mmc_host *host)
-{
-	return host->caps &
-		(MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
-		 MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104 |
-		 MMC_CAP_UHS_DDR50);
 }
 
 #ifdef CONFIG_MMC_CLKGATE
