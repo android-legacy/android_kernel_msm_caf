@@ -30,7 +30,7 @@
 #define KGSL_PWRFLAGS_AXI_ON   2
 #define KGSL_PWRFLAGS_IRQ_ON   3
 
-#define GPU_SWFI_LATENCY	3
+#define GPU_SWFI_LATENCY        3
 #define UPDATE_BUSY_VAL		1000000
 #define UPDATE_BUSY		50
 
