@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,7 @@
 #define KGSL_PWRFLAGS_AXI_ON   2
 #define KGSL_PWRFLAGS_IRQ_ON   3
 
-#define GPU_SWFI_LATENCY	3
+#define GPU_SWFI_LATENCY        3
 #define UPDATE_BUSY_VAL		1000000
 #define UPDATE_BUSY		50
 
@@ -970,6 +970,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		}
 	}
 
+	/* Set the CPU latency to 501usec to allow low latency PC modes */
+	pwr->pm_qos_latency = 501;
 
 	pm_runtime_enable(device->parentdev);
 	register_early_suspend(&device->display_off);
@@ -1086,11 +1088,6 @@ void kgsl_timer(unsigned long data)
 	}
 }
 
-bool kgsl_pwrctrl_isenabled(struct kgsl_device *device)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	return (test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->power_flags) != 0);
-}
 
 /**
  * kgsl_pre_hwaccess - Enforce preconditions for touching registers
@@ -1107,7 +1104,7 @@ void kgsl_pre_hwaccess(struct kgsl_device *device)
 	/* In order to touch a register you must hold the device mutex...*/
 	BUG_ON(!mutex_is_locked(&device->mutex));
 	/* and have the clock on! */
-	BUG_ON(!kgsl_pwrctrl_isenabled(device));
+	BUG_ON(!test_bit(KGSL_PWRFLAGS_CLK_ON, &device->pwrctrl.power_flags));
 }
 EXPORT_SYMBOL(kgsl_pre_hwaccess);
 
@@ -1160,7 +1157,7 @@ _sleep(struct kgsl_device *device)
 		_sleep_accounting(device);
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_OFF, KGSL_STATE_SLEEP);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLEEP);
-		pm_qos_update_request(&device->pm_qos_req_dma,
+		pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
 					PM_QOS_DEFAULT_VALUE);
 		break;
 	case KGSL_STATE_SLEEP:
@@ -1198,7 +1195,7 @@ _slumber(struct kgsl_device *device)
 		device->ftbl->stop(device);
 		_sleep_accounting(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
-		pm_qos_update_request(&device->pm_qos_req_dma,
+		pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
 						PM_QOS_DEFAULT_VALUE);
 		break;
 	case KGSL_STATE_SLUMBER:
