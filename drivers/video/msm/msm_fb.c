@@ -1856,11 +1856,6 @@ static int msm_fb_open(struct fb_info *info, int user)
 	return 0;
 }
 
-static void msm_fb_free_base_pipe(struct msm_fb_data_type *mfd)
-{
-	return 	mdp4_overlay_free_base_pipe(mfd);
-}
-
 static int msm_fb_release(struct fb_info *info, int user)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -1889,8 +1884,6 @@ static int msm_fb_release(struct fb_info *info, int user)
 				printk(KERN_ERR "msm_fb_release: can't turn off display!\n");
 				return ret;
 			}
-		} else {
-			msm_fb_free_base_pipe(mfd);
 		}
 	}
 
@@ -2197,8 +2190,10 @@ static void msm_fb_commit_wq_handler(struct work_struct *work)
 	info = &fb_backup->info;
 	if (fb_backup->disp_commit.flags &
 		MDP_DISPLAY_COMMIT_OVERLAY) {
+#ifdef CONFIG_FB_MSM_MDP40
 			mdp4_overlay_commit(info);
 	} else {
+#endif
 		var = &fb_backup->disp_commit.var;
 		msm_fb_pan_display_sub(var, info);
 	}
