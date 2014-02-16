@@ -2111,6 +2111,9 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 		pdata = (struct msm_fb_panel_data *)mfd->pdev->
 			dev.platform_data;
 		if ((pdata) && (pdata->set_backlight)) {
+#ifdef CONFIG_MACH_JENA
+			msleep(200);
+#endif
 			down(&mfd->sem);
 			mfd->bl_level = unset_bl_level;
 			pdata->set_backlight(mfd);
