@@ -2045,12 +2045,16 @@ static void bl_workqueue_handler(struct work_struct *work)
 	down(&mfd->sem);
 	if ((pdata) && (pdata->set_backlight) && (!bl_updated)
 					&& (mfd->panel_power_on)) {
+#ifdef CONFIG_MACH_JENA
+		msleep(200);
+#endif
+		down(&mfd->sem);
 		mfd->bl_level = unset_bl_level;
 		pdata->set_backlight(mfd);
 		bl_level_old = unset_bl_level;
+		up(&mfd->sem);
 		bl_updated = 1;
 	}
-	up(&mfd->sem);
 }
 
 static int msm_fb_pan_display(struct fb_var_screeninfo *var,
