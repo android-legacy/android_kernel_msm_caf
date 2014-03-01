@@ -58,7 +58,9 @@ static int camera_node;
 static enum msm_camera_type camera_type[MSM_MAX_CAMERA_SENSORS];
 static uint32_t sensor_mount_angle[MSM_MAX_CAMERA_SENSORS];
 
-struct ion_client *client_for_ion;
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+struct ion_client *client_for_ion = NULL;
+#endif
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 static const char *vfe_config_cmd[] = {
@@ -3075,7 +3077,6 @@ static int __msm_release(struct msm_sync *sync)
 		sync->core_powered_on = 0;
 	}
 	mutex_unlock(&sync->lock);
-	ion_client_destroy(client_for_ion);
 
 	return 0;
 }
@@ -3773,7 +3774,6 @@ static int __msm_open(struct msm_cam_device *pmsm, const char *const apps_id,
 		sync->core_powered_on = 1;
 	}
 	sync->opencnt++;
-	client_for_ion = msm_ion_client_create(-1, "camera");
 
 msm_open_done:
 	mutex_unlock(&sync->lock);
@@ -4095,3 +4095,23 @@ int msm_camera_drv_start(struct platform_device *dev,
 	return rc;
 }
 EXPORT_SYMBOL(msm_camera_drv_start);
+
+static int __init msm_camera_init(void)
+{
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	client_for_ion = msm_ion_client_create(-1, "camera");
+#endif
+	return 0;
+}
+module_init(msm_camera_init);
+
+void msm_camera_exit(void)
+{
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	ion_client_destroy(client_for_ion);
+#endif
+}
+module_exit(msm_camera_exit);
+
+MODULE_DESCRIPTION("MSM camera driver");
+MODULE_LICENSE("GPL v2");
