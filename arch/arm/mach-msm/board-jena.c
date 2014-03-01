@@ -3036,6 +3036,7 @@ static struct platform_device android_pmem_audio_device = {
 	.dev = { .platform_data = &android_pmem_audio_pdata },
 };
 
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 static struct android_pmem_platform_data android_pmem_pdata = {
 	.name = "pmem",
 	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
@@ -3047,7 +3048,7 @@ static struct platform_device android_pmem_device = {
 	.id = 0,
 	.dev = { .platform_data = &android_pmem_pdata },
 };
-
+#endif
 static struct smsc911x_platform_config smsc911x_config = {
 	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_HIGH,
 	.irq_type	= SMSC911X_IRQ_TYPE_PUSH_PULL,
@@ -3607,7 +3608,9 @@ static struct platform_device *msm7627a_surf_ffa_devices[] __initdata = {
 	&msm_device_otg,
 	&msm_device_gadget_peripheral,
 	&android_usb_device,
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	&android_pmem_device,
+#endif
 	&android_pmem_adsp_device,
 	&android_pmem_audio_device,
 	&msm_device_nand,
