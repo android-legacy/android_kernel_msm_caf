@@ -35,6 +35,7 @@
 #include <linux/syscalls.h>
 #include <linux/hrtimer.h>
 #include <mach/cpuidle.h>
+#include <linux/msm_ion.h>
 DEFINE_MUTEX(ctrl_cmd_lock);
 
 #define CAMERA_STOP_VIDEO 58
@@ -56,6 +57,8 @@ int g_v4l2_opencnt;
 static int camera_node;
 static enum msm_camera_type camera_type[MSM_MAX_CAMERA_SENSORS];
 static uint32_t sensor_mount_angle[MSM_MAX_CAMERA_SENSORS];
+
+struct ion_client *client_for_ion;
 
 static const char *vfe_config_cmd[] = {
 	"CMD_GENERAL",  /* 0 */
@@ -294,29 +297,42 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	struct msm_pmem_info *info, spinlock_t* pmem_spinlock,
 	struct msm_sync *sync)
 {
-	struct file *file;
 	unsigned long paddr;
-	unsigned long kvstart;
 	unsigned long len;
-	int rc;
+	int rc = -ENOMEM;
 	struct msm_pmem_region *region;
 	unsigned long flags;
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
+	struct file *file;
+	unsigned long kvstart;
+#endif
 
-
+	region = kmalloc(sizeof(struct msm_pmem_region), GFP_KERNEL);
+	if (!region)
+		goto out;
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	region->handle = ion_import_dma_buf(client_for_ion, info->fd);
+	if (IS_ERR_OR_NULL(region->handle))
+		goto out1;
+	ion_phys(client_for_ion, region->handle,
+		&paddr, (size_t *)&len);
+#else
 	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);
 	if (rc < 0) {
 		pr_err("%s: get_pmem_file fd %d error %d\n",
 			__func__,
 			info->fd, rc);
-		return rc;
+		goto out1;
 	}
+	region->file = file;
+#endif
 
 	if (!info->len)
 		info->len = len;
 
 	rc = check_pmem_info(info, len);
 	if (rc < 0)
-		return rc;
+		goto out2;
 
 	paddr += info->offset;
 	len = info->len;
@@ -324,21 +340,17 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	spin_lock_irqsave(pmem_spinlock, flags);
 	if (check_overlap(ptype, paddr, len) < 0) {
 		spin_unlock_irqrestore(pmem_spinlock, flags);
-		return -EINVAL;
+		rc -EINVAL;
+		goto out2;
 	}
 	spin_unlock_irqrestore(pmem_spinlock, flags);
 
-
-	region = kmalloc(sizeof(struct msm_pmem_region), GFP_KERNEL);
-	if (!region)
-		return -ENOMEM;
 
 	spin_lock_irqsave(pmem_spinlock, flags);
 	INIT_HLIST_NODE(&region->list);
 
 	region->paddr = paddr;
 	region->len = len;
-	region->file = file;
 	memcpy(&region->info, info, sizeof(region->info));
 
 	hlist_add_head(&(region->list), ptype);
@@ -347,6 +359,16 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 		__func__, info->type, paddr, (unsigned long)info->vaddr);
 
 	return 0;
+out2:
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	ion_free(client_for_ion, region->handle);
+#else
+	put_pmem_file(region->file);
+#endif
+out1:
+	kfree(region);
+out:
+	return rc;
 }
 
 /* return of 0 means failure */
@@ -599,6 +621,7 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 	int rc = 0;
 	struct msm_pmem_region *region;
 	struct hlist_node *node, *n;
+	HLIST_HEAD(pmem_free_list);
 	unsigned long flags = 0;
 
 	switch (pinfo->type) {
@@ -617,10 +640,7 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 					pinfo->vaddr == region->info.vaddr &&
 					pinfo->fd == region->info.fd) {
 				hlist_del(node);
-				put_pmem_file(region->file);
-				kfree(region);
-				CDBG("%s: type %d, vaddr  0x%p\n",
-					__func__, pinfo->type, pinfo->vaddr);
+				hlist_add_head(&(region->list), &pmem_free_list);
 			}
 		}
 		spin_unlock_irqrestore(&sync->pmem_frame_spinlock, flags);
@@ -632,15 +652,11 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 		hlist_for_each_entry_safe(region, node, n,
 			&sync->pmem_frames, list) {
 
-			if (((region->info.type == MSM_PMEM_VIDEO) ||
-				(region->info.type == MSM_PMEM_VIDEO_VPE)) &&
-				pinfo->vaddr == region->info.vaddr &&
-				pinfo->fd == region->info.fd) {
+			if (pinfo->type == region->info.type &&
+					pinfo->vaddr == region->info.vaddr &&
+					pinfo->fd == region->info.fd) {
 				hlist_del(node);
-				put_pmem_file(region->file);
-				kfree(region);
-				CDBG("%s: type %d, vaddr  0x%p\n",
-					__func__, pinfo->type, pinfo->vaddr);
+				hlist_add_head(&(region->list), &pmem_free_list);
 			}
 		}
 		spin_unlock_irqrestore(&sync->pmem_frame_spinlock, flags);
@@ -656,10 +672,7 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 					pinfo->vaddr == region->info.vaddr &&
 					pinfo->fd == region->info.fd) {
 				hlist_del(node);
-				put_pmem_file(region->file);
-				kfree(region);
-				CDBG("%s: type %d, vaddr  0x%p\n",
-					__func__, pinfo->type, pinfo->vaddr);
+				hlist_add_head(&(region->list), &pmem_free_list);
 			}
 		}
 		spin_unlock_irqrestore(&sync->pmem_stats_spinlock, flags);
@@ -670,6 +683,17 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 		break;
 	}
 
+	// Release the pmem buffers - has to be done outside of a spinlock context
+	hlist_for_each_entry_safe(region, node, n,
+		&pmem_free_list, list) {
+		hlist_del(node);
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		ion_free(client_for_ion, region->handle);
+#else
+		put_pmem_file(region->file);
+#endif
+		kfree(region);
+	}
 	return rc;
 }
 
@@ -3022,14 +3046,22 @@ static int __msm_release(struct msm_sync *sync)
 		hlist_for_each_entry_safe(region, hnode, n,
 				&sync->pmem_frames, list) {
 			hlist_del(hnode);
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+			ion_free(client_for_ion, region->handle);
+#else
 			put_pmem_file(region->file);
+#endif
 			kfree(region);
 		}
 		CDBG("%s, free stats pmem region\n", __func__);
 		hlist_for_each_entry_safe(region, hnode, n,
 				&sync->pmem_stats, list) {
 			hlist_del(hnode);
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+			ion_free(client_for_ion, region->handle);
+#else
 			put_pmem_file(region->file);
+#endif
 			kfree(region);
 		}
 		msm_queue_drain(&sync->pict_q, list_pict);
@@ -3040,6 +3072,7 @@ static int __msm_release(struct msm_sync *sync)
 		sync->core_powered_on = 0;
 	}
 	mutex_unlock(&sync->lock);
+	ion_client_destroy(client_for_ion);
 
 	return 0;
 }
@@ -3737,6 +3770,7 @@ static int __msm_open(struct msm_cam_device *pmsm, const char *const apps_id,
 		sync->core_powered_on = 1;
 	}
 	sync->opencnt++;
+	client_for_ion = msm_ion_client_create(-1, "camera");
 
 msm_open_done:
 	mutex_unlock(&sync->lock);
