@@ -29,7 +29,9 @@
 #include <mach/pmic.h>
 #include <linux/module.h>
 
-#if defined(CONFIG_MACH_JENA)
+#if defined(CONFIG_MACH_JENA_TELSTRA)
+#include "sr300pc20_S6500T.h"
+#elif defined(CONFIG_MACH_JENA)
 #include "sr300pc20_jena.h"
 #else
 #include "sr300pc20.h"
@@ -45,7 +47,7 @@
 
 /*#define CONFIG_LOAD_FILE*/
 
-#define PCAM_ENABLE_DEBUG
+/*#define PCAM_ENABLE_DEBUG*/
 
 #ifdef PCAM_ENABLE_DEBUG
 #define CAMDRV_DEBUG(fmt, arg...)\
@@ -87,6 +89,30 @@ static char mScene = EXT_CFG_SCENE_OFF;
 static char mCameraMode = EXT_CFG_CAMERA_MODE;
 static char mDTP;
 static char mInit;
+
+/*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+/* FACTORY TEST */
+/*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+struct class *camera_class;
+struct device *sr300pc20_dev;
+
+static ssize_t camtype_file_cmd_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	char camType[] = "SF_SR300PC20_NONE";
+
+	return snprintf(buf, 20, "%s", camType);
+}
+
+static ssize_t camtype_file_cmd_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	return size;
+}
+
+static DEVICE_ATTR(
+rear_camtype, 0664, camtype_file_cmd_show, camtype_file_cmd_store);
+/*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
 struct sr300pc20_work {
 	struct work_struct work;
@@ -1151,7 +1177,7 @@ static int sr300pc20_mipi_mode(int mode)
 		sr300pc20_csi_params.data_format = CSI_8BIT;
 		sr300pc20_csi_params.lane_assign = 0xe4;
 		sr300pc20_csi_params.dpcm_scheme = 0;
-		sr300pc20_csi_params.settle_cnt = 0x14;	/*lyon.cho 24->0x14 */
+		sr300pc20_csi_params.settle_cnt = 19; /*0x14;*/
 		rc = msm_camio_csi_config(&sr300pc20_csi_params);
 		if (rc < 0) {
 			pr_err("config csi controller failed\n");
@@ -1311,6 +1337,13 @@ void sr300pc20_set_power(int status)
 {
 	pr_err("[SR300PC20 %s]\n", status ? "POWER ON" : "POWER OFF");
 
+	gpio_tlmm_config(GPIO_CFG(96, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+			GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(85, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+			GPIO_CFG_ENABLE);
+
 	if (status == 1) {	/*POWER ON */
 		cam_ldo_power_on();
 #if defined(CONFIG_MACH_JENA)
@@ -1394,7 +1427,7 @@ static int sr300pc20_regs_table_init(void)
 
 	set_fs(get_ds());
 
-	filp = filp_open(TUNNING_FILE_PATH, O_RDONLY, 0);
+	/*filp = filp_open(TUNNING_FILE_PATH, O_RDONLY, 0);*/
 
 	if (IS_ERR(filp)) {
 		pr_err("[%s : %d]file open error\n", __func__, __LINE__);
@@ -1804,6 +1837,23 @@ static int sr300pc20_i2c_probe(struct i2c_client *client,
 		goto probe_failure;
 	}
 
+	camera_class = class_create(THIS_MODULE, "camera");
+
+	if (IS_ERR(camera_class))
+		pr_err("Failed to create class(camera)!\n");
+
+	sr300pc20_dev = device_create(camera_class, NULL, 0, NULL, "rear");
+	if (IS_ERR(sr300pc20_dev)) {
+		pr_err("Failed to create device!");
+		rc = -ENOMEM;
+		goto probe_failure;
+	}
+
+	if (device_create_file(sr300pc20_dev, &dev_attr_rear_camtype) < 0) {
+		CDBG("failed to create device file, %s\n",
+		dev_attr_rear_camtype.attr.name);
+	}
+
 	i2c_set_clientdata(client, sr300pc20_sensorw);
 	sr300pc20_init_client(client);
 	sr300pc20_client = client;
@@ -1842,6 +1892,9 @@ static int sr300pc20_sensor_probe(const struct msm_camera_sensor_info *info,
 		goto probe_done;
 	}
 
+	/*msleep(10);*/
+	usleep(10*1000);
+
 	s->s_init = sr300pc20_sensor_init;
 	s->s_release = sr300pc20_sensor_release;
 	s->s_config = sr300pc20_sensor_config;
@@ -1851,6 +1904,7 @@ static int sr300pc20_sensor_probe(const struct msm_camera_sensor_info *info,
 	s->s_mount_angle = 90;
 
 probe_done:
+	sr300pc20_set_power(0);
 	pr_info("%s:%d\n", __func__, __LINE__);
 	return rc;
 }

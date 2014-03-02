@@ -170,14 +170,12 @@ struct msm_camera_sensor_strobe_flash_data {
 	int state;
 };
 
-#ifndef CONFIG_MSM_CAMERA_LEGACY
 enum msm_camera_type {
 	BACK_CAMERA_2D,
 	FRONT_CAMERA_2D,
 	BACK_CAMERA_3D,
 	BACK_CAMERA_INT_3D,
 };
-#endif
 
 enum msm_sensor_type {
 	BAYER_SENSOR,
