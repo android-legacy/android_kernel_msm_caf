@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * Based on videobuf-dma-contig.c,
  * (c) 2008 Magnus Damm
@@ -29,8 +29,8 @@
 #include <media/videobuf2-msm-mem.h>
 #include <media/msm_camera.h>
 #include <mach/memory.h>
-#include <mach/msm_subsystem_map.h>
 #include <media/videobuf2-core.h>
+#include <mach/iommu_domains.h>
 
 #define MAGIC_PMEM 0x0733ac64
 #define MAGIC_CHECK(is, should)               \
@@ -45,9 +45,9 @@
 #define D(fmt, args...) do {} while (0)
 #endif
 
-static int32_t msm_mem_allocate(struct videobuf2_contig_pmem *mem)
+static unsigned long msm_mem_allocate(struct videobuf2_contig_pmem *mem)
 {
-	int32_t phyaddr;
+	unsigned long phyaddr;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	int rc, len;
 	mem->client = msm_ion_client_create(-1, "camera");
@@ -56,13 +56,15 @@ static int32_t msm_mem_allocate(struct videobuf2_contig_pmem *mem)
 		goto client_failed;
 	}
 	mem->ion_handle = ion_alloc(mem->client, mem->size, SZ_4K,
-		(0x1 << ION_CP_MM_HEAP_ID | 0x1 << ION_IOMMU_HEAP_ID));
+		(0x1 << ION_CP_MM_HEAP_ID | 0x1 << ION_IOMMU_HEAP_ID), 0);
 	if (IS_ERR((void *)mem->ion_handle)) {
 		pr_err("%s Could not allocate\n", __func__);
 		goto alloc_failed;
 	}
-	rc = ion_phys(mem->client, mem->ion_handle, (ion_phys_addr_t *)&phyaddr,
-		 (size_t *)&len);
+	rc = ion_map_iommu(mem->client, mem->ion_handle,
+			-1, 0, SZ_4K, 0,
+			(unsigned long *)&phyaddr,
+			(unsigned long *)&len, 0, 0);
 	if (rc < 0) {
 		pr_err("%s Could not get physical address\n", __func__);
 		goto phys_failed;
@@ -85,6 +87,7 @@ static int32_t msm_mem_free(struct videobuf2_contig_pmem *mem)
 {
 	int32_t rc = 0;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	ion_unmap_iommu(mem->client, mem->ion_handle, -1, 0);
 	ion_free(mem->client, mem->ion_handle);
 	ion_client_destroy(mem->client);
 #else
@@ -116,8 +119,6 @@ static const struct vm_operations_struct videobuf2_vm_ops = {
 static void *msm_vb2_mem_ops_alloc(void *alloc_ctx, unsigned long size)
 {
 	struct videobuf2_contig_pmem *mem;
-	unsigned int flags = 0;
-	long rc;
 	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
 	if (!mem)
 		return ERR_PTR(-ENOMEM);
@@ -132,18 +133,7 @@ static void *msm_vb2_mem_ops_alloc(void *alloc_ctx, unsigned long size)
 		kfree(mem);
 		return ERR_PTR(-ENOMEM);
 	}
-	flags = MSM_SUBSYSTEM_MAP_IOVA;
-	mem->subsys_id = MSM_SUBSYSTEM_CAMERA;
-	mem->msm_buffer = msm_subsystem_map_buffer(mem->phyaddr, mem->size,
-					flags, &(mem->subsys_id), 1);
-	if (IS_ERR((void *)mem->msm_buffer)) {
-		pr_err("%s: msm_subsystem_map_buffer failed\n", __func__);
-		rc = PTR_ERR((void *)mem->msm_buffer);
-		msm_mem_free(mem);
-		kfree(mem);
-		return ERR_PTR(-ENOMEM);
-	}
-	mem->mapped_phyaddr = mem->msm_buffer->iova[0];
+	mem->mapped_phyaddr = mem->phyaddr;
 	return mem;
 }
 static void msm_vb2_mem_ops_put(void *buf_priv)
@@ -151,8 +141,6 @@ static void msm_vb2_mem_ops_put(void *buf_priv)
 	struct videobuf2_contig_pmem *mem = buf_priv;
 	if (!mem->is_userptr) {
 		D("%s Freeing memory ", __func__);
-		if (msm_subsystem_unmap_buffer(mem->msm_buffer) < 0)
-			D("%s unmapped memory\n", __func__);
 		msm_mem_free(mem);
 	}
 	kfree(mem);
@@ -186,25 +174,27 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					struct videobuf2_msm_offset *offset,
 					enum videobuf2_buffer_type buffer_type,
 					uint32_t addr_offset, int path,
-					struct ion_client *client)
+					struct ion_client *client,
+					int domain_num)
 {
 	unsigned long len;
 	int rc = 0;
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	unsigned long kvstart;
 #endif
-	unsigned int flags = 0;
 	unsigned long paddr = 0;
 	if (mem->phyaddr != 0)
 		return 0;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	mem->ion_handle = ion_import_fd(client, (int)mem->vaddr);
+	mem->ion_handle = ion_import_dma_buf(client, (int)mem->vaddr);
 	if (IS_ERR_OR_NULL(mem->ion_handle)) {
 		pr_err("%s ION import failed\n", __func__);
 		return PTR_ERR(mem->ion_handle);
 	}
-	rc = ion_phys(client, mem->ion_handle, (ion_phys_addr_t *)&mem->phyaddr,
-			 (size_t *)&len);
+	rc = ion_map_iommu(client, mem->ion_handle, domain_num, 0,
+		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, 0, 0);
+	if (rc < 0)
+		ion_free(client, mem->ion_handle);
 #elif CONFIG_ANDROID_PMEM
 	rc = get_pmem_file((int)mem->vaddr, (unsigned long *)&mem->phyaddr,
 					&kvstart, &len, &mem->file);
@@ -224,32 +214,23 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	mem->path = path;
 	mem->buffer_type = buffer_type;
 	paddr = mem->phyaddr;
-	flags = MSM_SUBSYSTEM_MAP_IOVA;
-	mem->subsys_id = MSM_SUBSYSTEM_CAMERA;
-	mem->msm_buffer = msm_subsystem_map_buffer(mem->phyaddr, len,
-					flags, &(mem->subsys_id), 1);
-	if (IS_ERR((void *)mem->msm_buffer)) {
-		pr_err("%s: msm_subsystem_map_buffer failed\n", __func__);
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-		ion_free(client, mem->ion_handle);
-#elif CONFIG_ANDROID_PMEM
-		put_pmem_file(mem->file);
-#endif
-		return PTR_ERR((void *)mem->msm_buffer);
-	}
-	paddr = mem->msm_buffer->iova[0];
 	mem->mapped_phyaddr = paddr + addr_offset;
+	mem->addr_offset = addr_offset;
 	return rc;
 }
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_user_get);
 
 void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem,
-					struct ion_client *client)
+				struct ion_client *client, int domain_num)
 {
-	if (msm_subsystem_unmap_buffer(mem->msm_buffer) < 0)
-		D("%s unmapped memory\n", __func__);
 	if (mem->is_userptr) {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	if (IS_ERR_OR_NULL(mem->ion_handle)) {
+		pr_err("%s ION import failed\n", __func__);
+		return;
+	}
+		ion_unmap_iommu(client, mem->ion_handle,
+				domain_num, 0);
 		ion_free(client, mem->ion_handle);
 #elif CONFIG_ANDROID_PMEM
 		put_pmem_file(mem->file);
@@ -323,8 +304,8 @@ static int msm_vb2_mem_ops_mmap(void *buf_priv, struct vm_area_struct *vma)
 	vma->vm_private_data = mem;
 
 	D("mmap %p: %08lx-%08lx (%lx) pgoff %08lx\n",
-		map, vma->vm_start, vma->vm_end,
-		(long int)mem->bsize, vma->vm_pgoff);
+		vma, vma->vm_start, vma->vm_end,
+		(long int)mem->size, vma->vm_pgoff);
 	videobuf2_vm_open(vma);
 	return 0;
 error:

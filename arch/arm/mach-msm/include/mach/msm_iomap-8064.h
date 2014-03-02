@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -97,5 +97,22 @@
 
 #define APQ8064_SAW_L2_PHYS		0x02012000
 #define APQ8064_SAW_L2_SIZE		SZ_4K
+#define APQ8064_QFPROM_PHYS		0x00700000
+#define APQ8064_QFPROM_SIZE		SZ_4K
+
+#define APQ8064_SIC_NON_SECURE_PHYS	0x12100000
+#define APQ8064_SIC_NON_SECURE_SIZE	SZ_64K
+
+#define APQ8064_HDMI_PHYS		0x04A00000
+#define APQ8064_HDMI_SIZE		SZ_4K
+
+#ifdef CONFIG_DEBUG_APQ8064_UART
+#define MSM_DEBUG_UART_BASE		IOMEM(0xFA740000)
+#ifdef CONFIG_MACH_APQ8064_MAKO
+#define MSM_DEBUG_UART_PHYS		0x16340000
+#else
+#define MSM_DEBUG_UART_PHYS		0x16640000
+#endif
+#endif
 
 #endif

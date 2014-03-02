@@ -1,7 +1,7 @@
 /* drivers/android/pmem.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -14,6 +14,7 @@
  *
  */
 
+#include <linux/export.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
 #include <linux/fs.h>
@@ -24,6 +25,7 @@
 #include <linux/debugfs.h>
 #include <linux/android_pmem.h>
 #include <linux/mempolicy.h>
+#include <linux/sched.h>
 #include <linux/kobject.h>
 #include <linux/pm_runtime.h>
 #include <linux/memory_alloc.h>
@@ -2564,8 +2566,7 @@ static void ioremap_pmem(int id)
 			type = get_mem_type(MT_DEVICE);
 		DLOG("PMEMDEBUG: Remap phys %lx to virt %lx on %s\n",
 			pmem[id].base, addr, pmem[id].name);
-		if (ioremap_page_range(addr, addr + pmem[id].size,
-			pmem[id].base, __pgprot(type->prot_pte))) {
+		if (ioremap_pages(addr, pmem[id].base,  pmem[id].size, type)) {
 				pr_err("pmem: Failed to map pages\n");
 				BUG();
 		}
@@ -2594,6 +2595,7 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 {
 	int i, index = 0, id;
 	struct vm_struct *pmem_vma = NULL;
+	struct page *page;
 
 	if (id_count >= PMEM_MAX_DEVICES) {
 		pr_alert("pmem: %s: unable to register driver(%s) - no more "
@@ -2784,7 +2786,8 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	pmem[id].dev.name = pdata->name;
 	pmem[id].dev.minor = id;
 	pmem[id].dev.fops = &pmem_fops;
-	pr_info("pmem: Initializing %s (user-space) as %s\n",
+	pmem[id].reusable = pdata->reusable;
+	pr_info("pmem: Initializing %s as %s\n",
 		pdata->name, pdata->cached ? "cached" : "non-cached");
 
 	if (misc_register(&pmem[id].dev)) {
@@ -2792,25 +2795,29 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 		goto err_cant_register_device;
 	}
 
-	pmem[id].base = allocate_contiguous_memory_nomap(pmem[id].size,
-		pmem[id].memory_type, PAGE_SIZE);
+	if (!pmem[id].reusable) {
+		pmem[id].base = allocate_contiguous_memory_nomap(pmem[id].size,
+			pmem[id].memory_type, PAGE_SIZE);
+		if (!pmem[id].base) {
+			pr_err("pmem: Cannot allocate from reserved memory for %s\n",
+				pdata->name);
+			goto err_misc_deregister;
+		}
+	}
 
-	pr_info("allocating %lu bytes at %p (%lx physical) for %s\n",
-		pmem[id].size, pmem[id].vbase, pmem[id].base, pmem[id].name);
-
-	pmem[id].reusable = pdata->reusable;
 	/* reusable pmem requires map on demand */
 	pmem[id].map_on_demand = pdata->map_on_demand || pdata->reusable;
 	if (pmem[id].map_on_demand) {
 		if (pmem[id].reusable) {
 			const struct fmem_data *fmem_info = fmem_get_info();
 			pmem[id].area = fmem_info->area;
+			pmem[id].base = fmem_info->phys;
 		} else {
 			pmem_vma = get_vm_area(pmem[id].size, VM_IOREMAP);
 			if (!pmem_vma) {
 				pr_err("pmem: Failed to allocate virtual space for "
 					"%s\n", pdata->name);
-				goto out_put_kobj;
+				goto err_free;
 			}
 			pr_err("pmem: Reserving virtual address range %lx - %lx for"
 				" %s\n", (unsigned long) pmem_vma->addr,
@@ -2821,7 +2828,12 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	} else
 		pmem[id].area = NULL;
 
-	pmem[id].garbage_pfn = page_to_pfn(alloc_page(GFP_KERNEL));
+	page = alloc_page(GFP_KERNEL);
+	if (!page) {
+		pr_err("pmem: Failed to allocate page for %s\n", pdata->name);
+		goto cleanup_vm;
+	}
+	pmem[id].garbage_pfn = page_to_pfn(page);
 	atomic_set(&pmem[id].allocation_cnt, 0);
 
 	if (pdata->setup_region)
@@ -2833,8 +2845,19 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	if (pdata->release_region)
 		pmem[id].mem_release = pdata->release_region;
 
+	pr_info("allocating %lu bytes at %lx physical for %s\n",
+		pmem[id].size, pmem[id].base, pmem[id].name);
+
 	return 0;
 
+cleanup_vm:
+	if (!pmem[id].reusable)
+		remove_vm_area(pmem_vma);
+err_free:
+	if (!pmem[id].reusable)
+		free_contiguous_memory_by_paddr(pmem[id].base);
+err_misc_deregister:
+	misc_deregister(&pmem[id].dev);
 err_cant_register_device:
 out_put_kobj:
 	kobject_put(&pmem[id].kobj);
@@ -2872,6 +2895,19 @@ static int pmem_remove(struct platform_device *pdev)
 	int id = pdev->id;
 	__free_page(pfn_to_page(pmem[id].garbage_pfn));
 	pm_runtime_disable(&pdev->dev);
+	if (pmem[id].vbase)
+		iounmap(pmem[id].vbase);
+	if (pmem[id].map_on_demand && !pmem[id].reusable && pmem[id].area)
+		free_vm_area(pmem[id].area);
+	if (pmem[id].base)
+		free_contiguous_memory_by_paddr(pmem[id].base);
+	kobject_put(&pmem[id].kobj);
+	if (pmem[id].allocator_type == PMEM_ALLOCATORTYPE_BUDDYBESTFIT)
+		kfree(pmem[id].allocator.buddy_bestfit.buddy_bitmap);
+	else if (pmem[id].allocator_type == PMEM_ALLOCATORTYPE_BITMAP) {
+		kfree(pmem[id].allocator.bitmap.bitmap);
+		kfree(pmem[id].allocator.bitmap.bitm_alloc);
+	}
 	misc_deregister(&pmem[id].dev);
 	return 0;
 }

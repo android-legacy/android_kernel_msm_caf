@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,18 +25,22 @@
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 
+#if defined(CONFIG_LGE_CRASH_HANDLER)
+#include <mach/restart.h>
+#include <mach/board_lge.h>
+#endif
+
 #include "smd_private.h"
 #include "ramdump.h"
 #include "sysmon.h"
 
 #define SCM_Q6_NMI_CMD                  0x1
 #define MODULE_NAME			"lpass_8960"
-#define Q6SS_SOFT_INTR_WAKEUP		0x28800024
+#define MAX_BUF_SIZE			0x51
 
 /* Subsystem restart: QDSP6 data, functions */
 static void lpass_fatal_fn(struct work_struct *);
 static DECLARE_WORK(lpass_fatal_work, lpass_fatal_fn);
-void __iomem *q6_wakeup_intr;
 struct lpass_ssr {
 	void *lpass_ramdump_dev;
 } lpass_ssr;
@@ -66,10 +70,65 @@ static struct notifier_block rnb = {
 	.notifier_call = riva_notifier_cb,
 };
 
+static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
+								void *ss_handle)
+{
+	int ret;
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		pr_debug("%s: M-Notify: Shutdown started\n", __func__);
+		ret = sysmon_send_event(SYSMON_SS_LPASS, "modem",
+				SUBSYS_BEFORE_SHUTDOWN);
+		if (ret < 0)
+			pr_err("%s: sysmon_send_event error %d", __func__,
+				ret);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static void *ssr_modem_notif_hdle;
+static struct notifier_block mnb = {
+	.notifier_call = modem_notifier_cb,
+};
+
+static void lpass_log_failure_reason(void)
+{
+	char *reason;
+	char buffer[MAX_BUF_SIZE];
+	unsigned size;
+
+	reason = smem_get_entry(SMEM_SSR_REASON_LPASS0, &size);
+
+	if (!reason) {
+		pr_err("%s: subsystem failure reason: (unknown, smem_get_entry failed).",
+			 MODULE_NAME);
+		return;
+	}
+
+	if (reason[0] == '\0') {
+		pr_err("%s: subsystem failure reason: (unknown, init value found)",
+			 MODULE_NAME);
+		return;
+	}
+
+	size = size < MAX_BUF_SIZE ? size : (MAX_BUF_SIZE-1);
+	memcpy(buffer, reason, size);
+	buffer[size] = '\0';
+	pr_err("%s: subsystem failure reason: %s", MODULE_NAME, buffer);
+	memset((void *)reason, 0x0, size);
+	wmb();
+}
+
 static void lpass_fatal_fn(struct work_struct *work)
 {
 	pr_err("%s %s: Watchdog bite received from Q6!\n", MODULE_NAME,
 		__func__);
+	lpass_log_failure_reason();
+#if defined(CONFIG_LGE_CRASH_HANDLER)
+	set_ssr_magic_number("lpass");
+	msm_set_restart_mode(0x6d634130);
+#endif
 	panic(MODULE_NAME ": Resetting the SoC");
 }
 
@@ -84,6 +143,11 @@ static void lpass_smsm_state_cb(void *data, uint32_t old_state,
 		pr_err("%s: LPASS SMSM state changed to SMSM_RESET,"
 			" new_state = 0x%x, old_state = 0x%x\n", __func__,
 			new_state, old_state);
+		lpass_log_failure_reason();
+#if defined(CONFIG_LGE_CRASH_HANDLER)
+		set_ssr_magic_number("lpass");
+		msm_set_restart_mode(0x6d634130);
+#endif
 		panic(MODULE_NAME ": Resetting the SoC");
 	}
 }
@@ -96,17 +160,12 @@ static void send_q6_nmi(void)
 	scm_call(SCM_SVC_UTIL, SCM_Q6_NMI_CMD,
 	&cmd, sizeof(cmd), NULL, 0);
 
-	/* Wakeup the Q6 */
-	if (q6_wakeup_intr)
-		writel_relaxed(0x01, q6_wakeup_intr);
-	mb();
-
 	/* Q6 requires worstcase 100ms to dump caches etc.*/
 	mdelay(100);
 	pr_debug("%s: Q6 NMI was sent.\n", __func__);
 }
 
-static int lpass_shutdown(const struct subsys_data *subsys)
+static int lpass_shutdown(const struct subsys_desc *subsys)
 {
 	send_q6_nmi();
 	pil_force_shutdown("q6");
@@ -115,7 +174,7 @@ static int lpass_shutdown(const struct subsys_data *subsys)
 	return 0;
 }
 
-static int lpass_powerup(const struct subsys_data *subsys)
+static int lpass_powerup(const struct subsys_desc *subsys)
 {
 	int ret = pil_force_boot("q6");
 	enable_irq(LPASS_Q6SS_WDOG_EXPIRED);
@@ -124,7 +183,7 @@ static int lpass_powerup(const struct subsys_data *subsys)
 /* RAM segments - address and size for 8960 */
 static struct ramdump_segment q6_segments[] = { {0x8da00000, 0x8f200000 -
 					0x8da00000}, {0x28400000, 0x20000} };
-static int lpass_ramdump(int enable, const struct subsys_data *subsys)
+static int lpass_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	pr_debug("%s: enable[%d]\n", __func__, enable);
 	if (enable)
@@ -135,7 +194,7 @@ static int lpass_ramdump(int enable, const struct subsys_data *subsys)
 		return 0;
 }
 
-static void lpass_crash_shutdown(const struct subsys_data *subsys)
+static void lpass_crash_shutdown(const struct subsys_desc *subsys)
 {
 	q6_crash_shutdown = 1;
 	send_q6_nmi();
@@ -152,7 +211,9 @@ static irqreturn_t lpass_wdog_bite_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static struct subsys_data lpass_8960 = {
+static struct subsys_device *lpass_8960_dev;
+
+static struct subsys_desc lpass_8960 = {
 	.name = "lpass",
 	.shutdown = lpass_shutdown,
 	.powerup = lpass_powerup,
@@ -162,7 +223,10 @@ static struct subsys_data lpass_8960 = {
 
 static int __init lpass_restart_init(void)
 {
-	return ssr_register_subsystem(&lpass_8960);
+	lpass_8960_dev = subsys_register(&lpass_8960);
+	if (IS_ERR(lpass_8960_dev))
+		return PTR_ERR(lpass_8960_dev);
+	return 0;
 }
 
 static int __init lpass_fatal_init(void)
@@ -190,9 +254,6 @@ static int __init lpass_fatal_init(void)
 				__func__, ret);
 		goto out;
 	}
-	q6_wakeup_intr = ioremap_nocache(Q6SS_SOFT_INTR_WAKEUP, 8);
-	if (!q6_wakeup_intr)
-		pr_err("%s: Unable to request q6 wakeup interrupt\n", __func__);
 
 	lpass_ssr_8960.lpass_ramdump_dev = create_ramdump_device("lpass");
 
@@ -208,7 +269,17 @@ static int __init lpass_fatal_init(void)
 		ret = PTR_ERR(ssr_notif_hdle);
 		pr_err("%s: subsys_register_notifier for Riva: err = %d\n",
 			__func__, ret);
-		iounmap(q6_wakeup_intr);
+		free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
+		goto out;
+	}
+
+	ssr_modem_notif_hdle = subsys_notif_register_notifier("modem",
+							&mnb);
+	if (IS_ERR(ssr_modem_notif_hdle) < 0) {
+		ret = PTR_ERR(ssr_modem_notif_hdle);
+		pr_err("%s: subsys_register_notifier for Modem: err = %d\n",
+			__func__, ret);
+		subsys_notif_unregister_notifier(ssr_notif_hdle, &rnb);
 		free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 		goto out;
 	}
@@ -221,7 +292,8 @@ out:
 static void __exit lpass_fatal_exit(void)
 {
 	subsys_notif_unregister_notifier(ssr_notif_hdle, &rnb);
-	iounmap(q6_wakeup_intr);
+	subsys_notif_unregister_notifier(ssr_modem_notif_hdle, &mnb);
+	subsys_unregister(lpass_8960_dev);
 	free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 }
 

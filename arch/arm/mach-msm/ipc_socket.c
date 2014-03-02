@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,49 +26,15 @@
 
 #include <net/sock.h>
 
-#include <mach/peripheral-loader.h>
-
 #include "ipc_router.h"
+#include "msm_ipc_router_security.h"
 
 #define msm_ipc_sk(sk) ((struct msm_ipc_sock *)(sk))
 #define msm_ipc_sk_port(sk) ((struct msm_ipc_port *)(msm_ipc_sk(sk)->port))
-#define MODEM_LOAD_TIMEOUT (10 * HZ)
 
 static int sockets_enabled;
 static struct proto msm_ipc_proto;
 static const struct proto_ops msm_ipc_proto_ops;
-
-static void msm_ipc_router_unload_modem(void *pil)
-{
-	if (pil)
-		pil_put(pil);
-}
-
-static void *msm_ipc_router_load_modem(void)
-{
-	void *pil;
-	int rc;
-
-	pil = pil_get("modem");
-	if (IS_ERR(pil)) {
-		pr_debug("%s: modem load failed\n", __func__);
-		pil = NULL;
-	} else {
-		rc = wait_for_completion_interruptible_timeout(
-						&msm_ipc_remote_router_up,
-						MODEM_LOAD_TIMEOUT);
-		if (!rc)
-			rc = -ETIMEDOUT;
-		if (rc < 0) {
-			pr_err("%s: wait for remote router failed %d\n",
-				__func__, rc);
-			msm_ipc_router_unload_modem(pil);
-			pil = NULL;
-		}
-	}
-
-	return pil;
-}
 
 static struct sk_buff_head *msm_ipc_router_build_msg(unsigned int num_sect,
 					  struct iovec const *msg_sect,
@@ -232,13 +198,14 @@ static int msm_ipc_router_create(struct net *net,
 		return -ENOMEM;
 	}
 
+	port_ptr->check_send_permissions = msm_ipc_check_send_permissions;
 	sock->ops = &msm_ipc_proto_ops;
 	sock_init_data(sock, sk);
 	sk->sk_rcvtimeo = DEFAULT_RCV_TIMEO;
 
-	pil = msm_ipc_router_load_modem();
+	pil = msm_ipc_load_default_node();
 	msm_ipc_sk(sk)->port = port_ptr;
-	msm_ipc_sk(sk)->modem_pil = pil;
+	msm_ipc_sk(sk)->default_pil = pil;
 
 	return 0;
 }
@@ -253,6 +220,12 @@ int msm_ipc_router_bind(struct socket *sock, struct sockaddr *uaddr,
 
 	if (!sk)
 		return -EINVAL;
+
+	if (!check_permissions()) {
+		pr_err("%s: %s Do not have permissions\n",
+			__func__, current->comm);
+		return -EPERM;
+	}
 
 	if (!uaddr_len) {
 		pr_err("%s: Invalid address length\n", __func__);
@@ -306,6 +279,9 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 		ret = -ENOMEM;
 		goto out_sendmsg;
 	}
+
+	if (port_ptr->type == CLIENT_PORT)
+		wait_for_irsc_completion();
 
 	ret = msm_ipc_router_send_to(port_ptr, msg, &dest->address);
 	if (ret == (IPC_ROUTER_HDR_SIZE + total_len))
@@ -378,8 +354,8 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 	struct sock *sk = sock->sk;
 	struct msm_ipc_port *port_ptr;
 	struct server_lookup_args server_arg;
-	struct msm_ipc_port_addr *port_addr = NULL;
-	unsigned int n, port_addr_sz = 0;
+	struct msm_ipc_server_info *srv_info = NULL;
+	unsigned int n, srv_info_sz = 0;
 	int ret;
 
 	if (!sk)
@@ -420,38 +396,44 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 			break;
 		}
 		if (server_arg.num_entries_in_array) {
-			port_addr_sz = server_arg.num_entries_in_array *
-					sizeof(*port_addr);
-			port_addr = kmalloc(port_addr_sz, GFP_KERNEL);
-			if (!port_addr) {
+			srv_info_sz = server_arg.num_entries_in_array *
+					sizeof(*srv_info);
+			srv_info = kmalloc(srv_info_sz, GFP_KERNEL);
+			if (!srv_info) {
 				ret = -ENOMEM;
 				break;
 			}
 		}
 		ret = msm_ipc_router_lookup_server_name(&server_arg.port_name,
-				port_addr, server_arg.num_entries_in_array,
+				srv_info, server_arg.num_entries_in_array,
 				server_arg.lookup_mask);
 		if (ret < 0) {
 			pr_err("%s: Server not found\n", __func__);
 			ret = -ENODEV;
-			kfree(port_addr);
+			kfree(srv_info);
 			break;
 		}
 		server_arg.num_entries_found = ret;
 
 		ret = copy_to_user((void *)arg, &server_arg,
 				   sizeof(server_arg));
-		if (port_addr_sz) {
+		if (srv_info_sz) {
 			ret = copy_to_user((void *)(arg + sizeof(server_arg)),
-					   port_addr, port_addr_sz);
+					   srv_info, srv_info_sz);
 			if (ret)
 				ret = -EFAULT;
-			kfree(port_addr);
+			kfree(srv_info);
 		}
 		break;
 
 	case IPC_ROUTER_IOCTL_BIND_CONTROL_PORT:
 		ret = msm_ipc_router_bind_control_port(port_ptr);
+		break;
+
+	case IPC_ROUTER_IOCTL_CONFIG_SEC_RULES:
+		ret = msm_ipc_config_sec_rules((void *)arg);
+		if (ret != -EPERM)
+			port_ptr->type = IRSC_PORT;
 		break;
 
 	default:
@@ -487,12 +469,12 @@ static int msm_ipc_router_close(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct msm_ipc_port *port_ptr = msm_ipc_sk_port(sk);
-	void *pil = msm_ipc_sk(sk)->modem_pil;
+	void *pil = msm_ipc_sk(sk)->default_pil;
 	int ret;
 
 	lock_sock(sk);
 	ret = msm_ipc_router_close_port(port_ptr);
-	msm_ipc_router_unload_modem(pil);
+	msm_ipc_unload_default_node(pil);
 	release_sock(sk);
 	sock_put(sk);
 	sock->sk = NULL;

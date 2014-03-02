@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,5 +20,5 @@ struct msm_handset_platform_data {
 };
 
 void report_headset_status(bool connected);
-
+extern int current_jack_type;
 #endif

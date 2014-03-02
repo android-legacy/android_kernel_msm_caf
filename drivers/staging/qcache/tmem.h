@@ -4,7 +4,7 @@
  * Transcendent memory
  *
  * Copyright (c) 2009-2011, Dan Magenheimer, Oracle Corp.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _TMEM_H_
@@ -207,6 +207,6 @@ extern int tmem_destroy_pool(struct tmem_pool *);
 extern int tmem_flush_pool(struct tmem_pool *);
 extern void tmem_new_pool(struct tmem_pool *, uint32_t);
 
-extern void tmem_enable(bool);
+extern void tmem_enable(void);
 extern void tmem_disable(void);
 #endif /* _TMEM_H */

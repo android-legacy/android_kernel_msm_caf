@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,9 +24,9 @@
 
 #include "u_rmnet.h"
 
-#define NR_CTRL_SMD_PORTS	1
+#define NR_CTRL_SMD_PORTS	3
 static int n_rmnet_ctrl_ports;
-static char *rmnet_ctrl_names[] = { "DATA40_CNTL" };
+static char *rmnet_ctrl_names[] = {"DATA40_CNTL", "DATA39_CNTL", "DATA38_CNTL"};
 static struct workqueue_struct *grmnet_ctrl_wq;
 
 #define SMD_CH_MAX_LEN	20
@@ -59,7 +59,7 @@ struct rmnet_ctrl_port {
 	struct grmnet		*port_usb;
 
 	spinlock_t		port_lock;
-	struct work_struct	connect_w;
+	struct delayed_work	connect_w;
 };
 
 static struct rmnet_ctrl_ports {
@@ -108,13 +108,16 @@ static void grmnet_ctrl_smd_read_w(struct work_struct *w)
 	void *buf;
 	unsigned long flags;
 
-	while (1) {
+	spin_lock_irqsave(&port->port_lock, flags);
+	while (c->ch) {
 		sz = smd_cur_packet_size(c->ch);
-		if (sz == 0)
+		if (sz <= 0)
 			break;
 
 		if (smd_read_avail(c->ch) < sz)
 			break;
+
+		spin_unlock_irqrestore(&port->port_lock, flags);
 
 		buf = kmalloc(sz, GFP_KERNEL);
 		if (!buf)
@@ -130,8 +133,8 @@ static void grmnet_ctrl_smd_read_w(struct work_struct *w)
 			c->to_host++;
 		}
 		kfree(buf);
-		spin_unlock_irqrestore(&port->port_lock, flags);
 	}
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 static void grmnet_ctrl_smd_write_w(struct work_struct *w)
@@ -143,7 +146,7 @@ static void grmnet_ctrl_smd_write_w(struct work_struct *w)
 	int ret;
 
 	spin_lock_irqsave(&port->port_lock, flags);
-	while (1) {
+	while (c->ch) {
 		if (list_empty(&c->tx_q))
 			break;
 
@@ -320,9 +323,11 @@ static void grmnet_ctrl_smd_notify(void *p, unsigned event)
 static void grmnet_ctrl_smd_connect_w(struct work_struct *w)
 {
 	struct rmnet_ctrl_port *port =
-			container_of(w, struct rmnet_ctrl_port, connect_w);
+			container_of(w, struct rmnet_ctrl_port, connect_w.work);
 	struct smd_ch_info *c = &port->ctrl_ch;
 	unsigned long flags;
+	int	set_bits = 0;
+	int	clear_bits = 0;
 	int ret;
 
 	pr_debug("%s:\n", __func__);
@@ -332,14 +337,24 @@ static void grmnet_ctrl_smd_connect_w(struct work_struct *w)
 
 	ret = smd_open(c->name, &c->ch, port, grmnet_ctrl_smd_notify);
 	if (ret) {
-		pr_err("%s: Unable to open smd ch:%s err:%d\n",
-				__func__, c->name, ret);
+		if (ret == -EAGAIN) {
+			/* port not ready  - retry */
+			pr_debug("%s: SMD port not ready - rescheduling:%s err:%d\n",
+					__func__, c->name, ret);
+			queue_delayed_work(grmnet_ctrl_wq, &port->connect_w,
+				msecs_to_jiffies(250));
+		} else {
+			pr_err("%s: unable to open smd port:%s err:%d\n",
+					__func__, c->name, ret);
+		}
 		return;
 	}
 
+	set_bits = c->cbits_tomodem;
+	clear_bits = ~(c->cbits_tomodem | TIOCM_RTS);
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (port->port_usb)
-		smd_tiocmset(c->ch, c->cbits_tomodem, ~c->cbits_tomodem);
+		smd_tiocmset(c->ch, set_bits, clear_bits);
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
@@ -370,7 +385,7 @@ int gsmd_ctrl_connect(struct grmnet *gr, int port_num)
 	gr->notify_modem = gsmd_ctrl_send_cbits_tomodem;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	queue_work(grmnet_ctrl_wq, &port->connect_w);
+	queue_delayed_work(grmnet_ctrl_wq, &port->connect_w, 0);
 
 	return 0;
 }
@@ -412,10 +427,13 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	if (test_bit(CH_OPENED, &c->flags)) {
-		/* this should send the dtr zero */
+	if (test_and_clear_bit(CH_OPENED, &c->flags))
+		/* send dtr zero */
+		smd_tiocmset(c->ch, c->cbits_tomodem, ~c->cbits_tomodem);
+
+	if (c->ch) {
 		smd_close(c->ch);
-		clear_bit(CH_OPENED, &c->flags);
+		c->ch = NULL;
 	}
 }
 
@@ -439,7 +457,8 @@ static int grmnet_ctrl_smd_ch_probe(struct platform_device *pdev)
 			/* if usb is online, try opening smd_ch */
 			spin_lock_irqsave(&port->port_lock, flags);
 			if (port->port_usb)
-				queue_work(grmnet_ctrl_wq, &port->connect_w);
+				queue_delayed_work(grmnet_ctrl_wq,
+							&port->connect_w, 0);
 			spin_unlock_irqrestore(&port->port_lock, flags);
 
 			break;
@@ -464,7 +483,10 @@ static int grmnet_ctrl_smd_ch_remove(struct platform_device *pdev)
 		if (!strncmp(c->name, pdev->name, SMD_CH_MAX_LEN)) {
 			clear_bit(CH_READY, &c->flags);
 			clear_bit(CH_OPENED, &c->flags);
-			smd_close(c->ch);
+			if (c->ch) {
+				smd_close(c->ch);
+				c->ch = NULL;
+			}
 			break;
 		}
 	}
@@ -497,7 +519,7 @@ static int grmnet_ctrl_smd_port_alloc(int portno)
 	port->port_num = portno;
 
 	spin_lock_init(&port->port_lock);
-	INIT_WORK(&port->connect_w, grmnet_ctrl_smd_connect_w);
+	INIT_DELAYED_WORK(&port->connect_w, grmnet_ctrl_smd_connect_w);
 
 	c = &port->ctrl_ch;
 	c->name = rmnet_ctrl_names[portno];
@@ -603,8 +625,8 @@ static ssize_t gsmd_ctrl_read_stats(struct file *file, char __user *ubuf,
 				c->cbits_tomodem ? "HIGH" : "LOW",
 				test_bit(CH_OPENED, &c->flags),
 				test_bit(CH_READY, &c->flags),
-				smd_read_avail(c->ch),
-				smd_write_avail(c->ch));
+				c->ch ? smd_read_avail(c->ch) : 0,
+				c->ch ? smd_write_avail(c->ch) : 0);
 
 		spin_unlock_irqrestore(&port->port_lock, flags);
 	}

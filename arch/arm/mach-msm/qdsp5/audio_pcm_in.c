@@ -2,7 +2,7 @@
  *
  * pcm audio input device
  *
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5v2/audio_pcm_in.c,
  * Copyright (C) 2008 Google, Inc.
@@ -26,6 +26,7 @@
 #include <linux/kthread.h>
 #include <linux/wait.h>
 #include <linux/dma-mapping.h>
+#include <linux/msm_ion.h>
 
 #include <linux/delay.h>
 
@@ -114,6 +115,8 @@ struct audio_in {
 	 * All the coeff should be passed from user space	    */
 	int iir_enable;
 	audpreproc_cmd_cfg_iir_tuning_filter_params iir_cfg;
+	struct ion_client *client;
+	struct ion_handle *output_buff_handle;
 };
 
 static int audpcm_in_dsp_enable(struct audio_in *audio, int enable);
@@ -218,6 +221,7 @@ static int audpcm_in_disable(struct audio_in *audio)
 
 		audpcm_in_dsp_enable(audio, 0);
 
+		audio->stopped = 1;
 		wake_up(&audio->wait);
 
 		msm_adsp_disable(audio->audrec);
@@ -584,7 +588,7 @@ static void audpcm_in_flush(struct audio_in *audio)
 	audio->in_head = 0;
 	audio->in_tail = 0;
 	audio->in_count = 0;
-	for (i = FRAME_NUM-1; i <= 0; i--) {
+	for (i = FRAME_NUM-1; i >= 0; i--) {
 		audio->in[i].size = 0;
 		audio->in[i].read = 0;
 	}
@@ -613,7 +617,6 @@ static long audpcm_in_ioctl(struct file *file,
 	}
 	case AUDIO_STOP:
 		rc = audpcm_in_disable(audio);
-		audio->stopped = 1;
 		break;
 	case AUDIO_FLUSH:
 		if (audio->stopped) {
@@ -764,9 +767,11 @@ static int audpcm_in_release(struct inode *inode, struct file *file)
 	audio->audpre = NULL;
 	audio->opened = 0;
 	if (audio->data) {
-		free_contiguous_memory((void *)audio->data);
+		ion_unmap_kernel(audio->client, audio->output_buff_handle);
+		ion_free(audio->client, audio->output_buff_handle);
 		audio->data = NULL;
 	}
+	ion_client_destroy(audio->client);
 	mutex_unlock(&audio->lock);
 	return 0;
 }
@@ -777,6 +782,11 @@ static int audpcm_in_open(struct inode *inode, struct file *file)
 {
 	struct audio_in *audio = &the_audio_in;
 	int rc;
+	int len = 0;
+	unsigned long ionflag = 0;
+	ion_phys_addr_t addr = 0;
+	struct ion_handle *handle = NULL;
+	struct ion_client *client = NULL;
 
 	int encid;
 	mutex_lock(&audio->lock);
@@ -827,23 +837,53 @@ static int audpcm_in_open(struct inode *inode, struct file *file)
 
 	audpcm_in_flush(audio);
 
-	audio->data = allocate_contiguous_memory(DMASZ, MEMTYPE_EBI1,
-				SZ_4K, 0);
-	if (!audio->data) {
-		MM_ERR("could not allocate read buffers\n");
+	client = msm_ion_client_create(UINT_MAX, "Audio_PCM_in_client");
+	if (IS_ERR_OR_NULL(client)) {
+		MM_ERR("Unable to create ION client\n");
 		rc = -ENOMEM;
-		goto evt_error;
-	} else {
-		audio->phys = memory_pool_node_paddr(audio->data);
-		if (!audio->phys) {
-			MM_ERR("could not get physical address\n");
-			rc = -ENOMEM;
-			free_contiguous_memory(audio->data);
-			goto evt_error;
-		}
-		MM_DBG("read buf: phy addr 0x%08x kernel addr 0x%08x\n",
-				audio->phys, (int)audio->data);
+		goto client_create_error;
 	}
+	audio->client = client;
+
+	MM_DBG("allocating mem sz = %d\n", DMASZ);
+	handle = ion_alloc(client, DMASZ, SZ_4K,
+		ION_HEAP(ION_AUDIO_HEAP_ID), 0);
+	if (IS_ERR_OR_NULL(handle)) {
+		MM_ERR("Unable to create allocate O/P buffers\n");
+		rc = -ENOMEM;
+		goto output_buff_alloc_error;
+	}
+
+	audio->output_buff_handle = handle;
+
+	rc = ion_phys(client , handle, &addr, &len);
+	if (rc) {
+		MM_ERR("O/P buffers:Invalid phy: %x sz: %x\n",
+			(unsigned int) addr, (unsigned int) len);
+		rc = -ENOMEM;
+		goto output_buff_get_phys_error;
+	} else {
+		MM_INFO("O/P buffers:valid phy: %x sz: %x\n",
+			(unsigned int) addr, (unsigned int) len);
+	}
+	audio->phys = (int32_t)addr;
+
+	rc = ion_handle_get_flags(client, handle, &ionflag);
+	if (rc) {
+		MM_ERR("could not get flags for the handle\n");
+		rc = -ENOMEM;
+		goto output_buff_get_flags_error;
+	}
+
+	audio->data = ion_map_kernel(client, handle);
+	if (IS_ERR(audio->data)) {
+		MM_ERR("could not map read buffers,freeing instance 0x%08x\n",
+				(int)audio);
+		rc = -ENOMEM;
+		goto output_buff_map_error;
+	}
+	MM_DBG("read buf: phy addr 0x%08x kernel addr 0x%08x\n",
+		audio->phys, (int)audio->data);
 
 	file->private_data = audio;
 	audio->opened = 1;
@@ -851,7 +891,13 @@ static int audpcm_in_open(struct inode *inode, struct file *file)
 done:
 	mutex_unlock(&audio->lock);
 	return rc;
-evt_error:
+output_buff_map_error:
+output_buff_get_phys_error:
+output_buff_get_flags_error:
+	ion_free(client, audio->output_buff_handle);
+output_buff_alloc_error:
+	ion_client_destroy(client);
+client_create_error:
 	msm_adsp_put(audio->audrec);
 	msm_adsp_put(audio->audpre);
 	audpreproc_aenc_free(audio->enc_id);

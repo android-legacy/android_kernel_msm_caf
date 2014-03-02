@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2756,6 +2756,7 @@ static bool timpani_register_is_cacheable(u8 reg)
 	case TIMPANI_A_CDC_ANC2_CTL2:
 	case TIMPANI_A_CDC_ANC2_FF_FB_SHIFT:
 	case TIMPANI_A_AUXPGA_LR_GAIN:
+	case TIMPANI_A_CDC_ANC_INPUT_MUX:
 		return false;
 	default:
 		return true;

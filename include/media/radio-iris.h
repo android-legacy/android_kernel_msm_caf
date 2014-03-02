@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2011-2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
  *
  * This file is based on include/net/bluetooth/hci_core.h
  *
@@ -44,7 +44,17 @@
 /* default data access */
 #define DEFAULT_DATA_OFFSET 2
 #define DEFAULT_DATA_SIZE 249
-
+/* Power levels are 0-7, but SOC will expect values from 0-255
+ * So the each level step size will be 255/7 = 36 */
+#define FM_TX_PWR_LVL_STEP_SIZE 36
+#define FM_TX_PWR_LVL_0         0 /* Lowest power lvl that can be set for Tx */
+#define FM_TX_PWR_LVL_MAX       7 /* Max power lvl for Tx */
+#define FM_TX_PHY_CFG_MODE   0x3c
+#define FM_TX_PHY_CFG_LEN    0x10
+#define FM_TX_PWR_GAIN_OFFSET 14
+#define FM_AF_LIST_MAX_SIZE   200
+#define AF_LIST_MAX     (FM_AF_LIST_MAX_SIZE / 4) /* Each AF frequency consist
+							of sizeof(int) bytes */
 /* HCI timeouts */
 #define RADIO_HCI_TIMEOUT	(10000)	/* 10 seconds */
 
@@ -129,7 +139,8 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_OCF_FM_EN_WAN_AVD_CTRL          0x0014
 #define HCI_OCF_FM_EN_NOTCH_CTRL            0x0015
 #define HCI_OCF_FM_SET_EVENT_MASK           0x0016
-
+#define HCI_OCF_FM_SET_CH_DET_THRESHOLD     0x0017
+#define HCI_OCF_FM_GET_CH_DET_THRESHOLD     0x0018
 /* HCI trans control commans opcode*/
 #define HCI_OCF_FM_ENABLE_TRANS_REQ         0x0001
 #define HCI_OCF_FM_DISABLE_TRANS_REQ        0x0002
@@ -199,11 +210,12 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_FM_ENABLE_TRANS_CMD 13
 #define HCI_FM_DISABLE_TRANS_CMD 14
 #define HCI_FM_GET_TX_CONFIG 15
-
+#define HCI_FM_GET_DET_CH_TH_CMD 16
 
 /* Defines for FM TX*/
-#define TX_PS_DATA_LENGTH 96
+#define TX_PS_DATA_LENGTH 108
 #define TX_RT_DATA_LENGTH 64
+#define PS_STRING_LEN     9
 
 /* ----- HCI Command request ----- */
 struct hci_fm_recv_conf_req {
@@ -230,7 +242,7 @@ struct hci_fm_tx_ps {
 	__u16	pi;
 	__u8	pty;
 	__u8	ps_repeatcount;
-	__u8	ps_len;
+	__u8	ps_num;
 	__u8    ps_data[TX_PS_DATA_LENGTH];
 } __packed;
 
@@ -238,7 +250,7 @@ struct hci_fm_tx_rt {
 	__u8    rt_control;
 	__u16	pi;
 	__u8	pty;
-	__u8	ps_len;
+	__u8	rt_len;
 	__u8    rt_data[TX_RT_DATA_LENGTH];
 } __packed;
 
@@ -319,6 +331,14 @@ struct hci_fm_ssbi_peek {
 	__u16 start_address;
 } __packed;
 
+struct hci_fm_ch_det_threshold {
+	char sinr;
+	__u8 sinr_samples;
+	__u8 low_th;
+	__u8 high_th;
+
+} __packed;
+
 /*HCI events*/
 #define HCI_EV_TUNE_STATUS              0x01
 #define HCI_EV_RDS_LOCK_STATUS          0x02
@@ -346,6 +366,53 @@ struct hci_fm_ssbi_peek {
 #define HCI_REQ_CANCELED  2
 #define HCI_REQ_STATUS    3
 
+#define MAX_RAW_RDS_GRPS	21
+
+#define RDSGRP_DATA_OFFSET	 0x1
+
+/*RT PLUS*/
+#define DUMMY_CLASS		0
+#define RT_PLUS_LEN_1_TAG	3
+#define RT_ERT_FLAG_BIT		5
+
+/*TAG1*/
+#define TAG1_MSB_OFFSET		3
+#define TAG1_MSB_MASK		7
+#define TAG1_LSB_OFFSET		5
+#define TAG1_POS_MSB_MASK	31
+#define TAG1_POS_MSB_OFFSET	1
+#define TAG1_POS_LSB_OFFSET	7
+#define TAG1_LEN_OFFSET		1
+#define TAG1_LEN_MASK		63
+
+/*TAG2*/
+#define TAG2_MSB_OFFSET		5
+#define TAG2_MSB_MASK		1
+#define TAG2_LSB_OFFSET		3
+#define TAG2_POS_MSB_MASK	7
+#define TAG2_POS_MSB_OFFSET	3
+#define TAG2_POS_LSB_OFFSET	5
+#define TAG2_LEN_MASK		31
+
+#define AGT_MASK		31
+/*Extract 5 left most bits of lsb of 2nd block*/
+#define AGT(x)			(x & AGT_MASK)
+/*16 bits of 4th block*/
+#define AID(lsb, msb)		((msb << 8) | (lsb))
+/*Extract 5 right most bits of msb of 2nd block*/
+#define GTC(blk2msb)		(blk2msb >> 3)
+
+#define GRP_3A			0x6
+#define RT_PLUS_AID		0x4bd7
+
+/*ERT*/
+#define ERT_AID			0x6552
+#define CARRIAGE_RETURN		0x000D
+#define MAX_ERT_SEGMENT		31
+#define ERT_FORMAT_DIR_BIT	1
+
+#define EXTRACT_BIT(data, bit_pos) ((data & (1 << bit_pos)) >> bit_pos)
+
 struct hci_ev_tune_status {
 	__u8    sub_event;
 	__le32  station_freq;
@@ -358,9 +425,19 @@ struct hci_ev_tune_status {
 	__u8	intf_det_th;
 } __packed;
 
+struct rds_blk_data {
+	__u8	rdsMsb;
+	__u8	rdsLsb;
+	__u8	blockStatus;
+} __packed;
+
+struct rds_grp_data {
+	struct rds_blk_data rdsBlk[4];
+} __packed;
+
 struct hci_ev_rds_rx_data {
 	__u8    num_rds_grps;
-	__u8    rds_grp_data[12];
+	struct  rds_grp_data rds_grp_data[MAX_RAW_RDS_GRPS];
 } __packed;
 
 struct hci_ev_prg_service {
@@ -386,7 +463,7 @@ struct hci_ev_af_list {
 	__le32   tune_freq;
 	__le16   pi_code;
 	__u8    af_size;
-	__u8    af_list[25];
+	__u8    af_list[FM_AF_LIST_MAX_SIZE];
 } __packed;
 
 struct hci_ev_cmd_complete {
@@ -473,6 +550,29 @@ struct hci_fm_dbg_param_rsp {
 	__u8    in_det_out;
 } __packed;
 
+#define CLKSPURID_INDEX0	0
+#define CLKSPURID_INDEX1	5
+#define CLKSPURID_INDEX2	10
+#define CLKSPURID_INDEX3	15
+#define CLKSPURID_INDEX4	20
+#define CLKSPURID_INDEX5	25
+
+#define MAX_SPUR_FREQ_LIMIT	30
+#define CKK_SPUR		0x3B
+#define SPUR_DATA_SIZE		0x4
+#define SPUR_ENTRIES_PER_ID	0x5
+
+#define COMPUTE_SPUR(val)         ((((val) - (76000)) / (50)))
+#define GET_FREQ(val, bit)        ((bit == 1) ? ((val) >> 8) : ((val) & 0xFF))
+#define GET_SPUR_ENTRY_LEVEL(val) ((val) / (5))
+
+struct hci_fm_spur_data {
+	__u32	freq[MAX_SPUR_FREQ_LIMIT];
+	__s8	rmssi[MAX_SPUR_FREQ_LIMIT];
+	__u8	enable[MAX_SPUR_FREQ_LIMIT];
+} __packed;
+
+
 /* HCI dev events */
 #define RADIO_HCI_DEV_REG			1
 #define RADIO_HCI_DEV_WRITE			2
@@ -500,6 +600,7 @@ enum radio_state_t {
 	FM_RECV,
 	FM_TRANS,
 	FM_RESET,
+	FM_CALIB
 };
 
 enum v4l2_cid_private_iris_t {
@@ -551,6 +652,15 @@ enum v4l2_cid_private_iris_t {
 	V4L2_CID_PRIVATE_IRIS_DO_CALIBRATION,
 	V4L2_CID_PRIVATE_IRIS_SRCH_ALGORITHM, /* TAVARUA specific command */
 	V4L2_CID_PRIVATE_IRIS_GET_SINR,
+	V4L2_CID_PRIVATE_INTF_LOW_THRESHOLD,
+	V4L2_CID_PRIVATE_INTF_HIGH_THRESHOLD,
+	V4L2_CID_PRIVATE_SINR_THRESHOLD,
+	V4L2_CID_PRIVATE_SINR_SAMPLES,
+	V4L2_CID_PRIVATE_SPUR_FREQ,
+	V4L2_CID_PRIVATE_SPUR_FREQ_RMSSI,
+	V4L2_CID_PRIVATE_SPUR_SELECTION,
+	V4L2_CID_PRIVATE_UPDATE_SPUR_TABLE,
+	V4L2_CID_PRIVATE_VALID_CHANNEL,
 
 	/*using private CIDs under userclass*/
 	V4L2_CID_PRIVATE_IRIS_READ_DEFAULT = 0x00980928,
@@ -577,7 +687,11 @@ enum iris_evt_t {
 	IRIS_EVT_NEW_SRCH_LIST,
 	IRIS_EVT_NEW_AF_LIST,
 	IRIS_EVT_TXRDSDAT,
-	IRIS_EVT_TXRDSDONE
+	IRIS_EVT_TXRDSDONE,
+	IRIS_EVT_RADIO_DISABLED,
+	IRIS_EVT_NEW_ODA,
+	IRIS_EVT_NEW_RT_PLUS,
+	IRIS_EVT_NEW_ERT,
 };
 enum emphasis_type {
 	FM_RX_EMP75 = 0x0,
@@ -609,7 +723,7 @@ enum iris_region_t {
 	IRIS_REGION_OTHER
 };
 
-#define STD_BUF_SIZE        (64)
+#define STD_BUF_SIZE        (256)
 
 enum iris_buf_t {
 	IRIS_BUF_SRCH_LIST,
@@ -623,7 +737,9 @@ enum iris_buf_t {
 	IRIS_BUF_RDS_CNTRS,
 	IRIS_BUF_RD_DEFAULT,
 	IRIS_BUF_CAL_DATA,
-	IRIS_BUF_MAX
+	IRIS_BUF_RT_PLUS,
+	IRIS_BUF_ERT,
+	IRIS_BUF_MAX,
 };
 
 enum iris_xfr_t {
@@ -658,10 +774,18 @@ enum search_t {
 	RDS_AF_JUMP,
 };
 
+enum spur_entry_levels {
+	ENTRY_0,
+	ENTRY_1,
+	ENTRY_2,
+	ENTRY_3,
+	ENTRY_4,
+	ENTRY_5,
+};
 
 /* Band limits */
 #define REGION_US_EU_BAND_LOW              87500
-#define REGION_US_EU_BAND_HIGH             107900
+#define REGION_US_EU_BAND_HIGH             108000
 #define REGION_JAPAN_STANDARD_BAND_LOW     76000
 #define REGION_JAPAN_STANDARD_BAND_HIGH    90000
 #define REGION_JAPAN_WIDE_BAND_LOW         90000
@@ -687,7 +811,7 @@ enum search_t {
 /* constants */
 #define  RDS_BLOCKS_NUM	(4)
 #define BYTES_PER_BLOCK	(3)
-#define MAX_PS_LENGTH	(96)
+#define MAX_PS_LENGTH	(108)
 #define MAX_RT_LENGTH	(64)
 #define RDS_GRP_CNTR_LEN (36)
 #define RX_RT_DATA_LENGTH (63)
@@ -729,6 +853,11 @@ enum search_t {
 #define CALIB_DATA_OFSET  2
 #define CALIB_MODE_OFSET  1
 #define MAX_CALIB_SIZE 75
+
+/* Channel validity */
+#define INVALID_CHANNEL		(0)
+#define VALID_CHANNEL		(1)
+
 struct hci_fm_set_cal_req_proc {
 	__u8    mode;
 	/*Max process calibration data size*/
@@ -752,6 +881,7 @@ struct hci_cc_do_calibration_rsp {
 #define RDS_SYNC_INTR   (1 << 1)
 #define AUDIO_CTRL_INTR (1 << 2)
 #define AF_JUMP_ENABLE  (1 << 4)
+
 int hci_def_data_read(struct hci_fm_def_data_rd_req *arg,
 	struct radio_hci_dev *hdev);
 int hci_def_data_write(struct hci_fm_def_data_wr_req *arg,

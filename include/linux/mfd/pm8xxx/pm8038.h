@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,10 @@
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
+#include <linux/leds-pm8xxx.h>
 #include <linux/mfd/pm8xxx/ccadc.h>
+#include <linux/mfd/pm8xxx/spk.h>
+#include <linux/mfd/pm8xxx/tm.h>
 
 #define PM8038_CORE_DEV_NAME "pm8038-core"
 
@@ -51,6 +54,7 @@
 
 /* PMIC Interrupts */
 #define PM8038_RTC_ALARM_IRQ		PM8038_IRQ_BLOCK_BIT(4, 7)
+#define PM8038_BATT_ALARM_IRQ		PM8921_IRQ_BLOCK_BIT(5, 6)
 #define PM8038_PWRKEY_REL_IRQ		PM8038_IRQ_BLOCK_BIT(6, 2)
 #define PM8038_PWRKEY_PRESS_IRQ		PM8038_IRQ_BLOCK_BIT(6, 3)
 #define PM8038_KEYPAD_IRQ		PM8038_IRQ_BLOCK_BIT(9, 2)
@@ -61,6 +65,9 @@
 #define PM8038_USB_ID_IN_IRQ(base)	(base + PM8921_IRQ_BLOCK_BIT(6, 1))
 
 #define PM8038_RESOUT_IRQ		PM8038_IRQ_BLOCK_BIT(6, 4)
+
+#define PM8038_OVERTEMP_IRQ		PM8038_IRQ_BLOCK_BIT(4, 2)
+#define PM8038_TEMPSTAT_IRQ		PM8038_IRQ_BLOCK_BIT(6, 7)
 
 struct pm8038_platform_data {
 	int					irq_base;
@@ -75,7 +82,10 @@ struct pm8038_platform_data {
 	struct pm8921_charger_platform_data	*charger_pdata;
 	struct pm8921_bms_platform_data		*bms_pdata;
 	struct pm8xxx_adc_platform_data		*adc_pdata;
+	struct pm8xxx_led_platform_data		*leds_pdata;
+	struct pm8xxx_vibrator_platform_data	*vibrator_pdata;
 	struct pm8xxx_ccadc_platform_data	*ccadc_pdata;
+	struct pm8xxx_spk_platform_data		*spk_pdata;
 };
 
 #endif

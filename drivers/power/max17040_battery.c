@@ -148,7 +148,7 @@ static void max17040_get_online(struct i2c_client *client)
 {
 	struct max17040_chip *chip = i2c_get_clientdata(client);
 
-	if (chip->pdata->battery_online)
+	if (chip->pdata && chip->pdata->battery_online)
 		chip->online = chip->pdata->battery_online();
 	else
 		chip->online = 1;
@@ -158,7 +158,8 @@ static void max17040_get_status(struct i2c_client *client)
 {
 	struct max17040_chip *chip = i2c_get_clientdata(client);
 
-	if (!chip->pdata->charger_online || !chip->pdata->charger_enable) {
+	if (!chip->pdata || !chip->pdata->charger_online
+			|| !chip->pdata->charger_enable) {
 		chip->status = POWER_SUPPLY_STATUS_UNKNOWN;
 		return;
 	}
@@ -290,18 +291,7 @@ static struct i2c_driver max17040_i2c_driver = {
 	.resume		= max17040_resume,
 	.id_table	= max17040_id,
 };
-
-static int __init max17040_init(void)
-{
-	return i2c_add_driver(&max17040_i2c_driver);
-}
-module_init(max17040_init);
-
-static void __exit max17040_exit(void)
-{
-	i2c_del_driver(&max17040_i2c_driver);
-}
-module_exit(max17040_exit);
+module_i2c_driver(max17040_i2c_driver);
 
 MODULE_AUTHOR("Minkyu Kang <mk7.kang@samsung.com>");
 MODULE_DESCRIPTION("MAX17040 Fuel Gauge");

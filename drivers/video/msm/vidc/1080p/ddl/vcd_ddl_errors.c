@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,7 +70,6 @@ static u32 ddl_handle_hw_fatal_errors(struct ddl_client_context *ddl)
 	case VIDC_1080P_ERROR_MEM_ALLOCATION_FAILED:
 	case VIDC_1080P_ERROR_INSUFFICIENT_CONTEXT_SIZE:
 	case VIDC_1080P_ERROR_DIVIDE_BY_ZERO:
-	case VIDC_1080P_ERROR_DESCRIPTOR_BUFFER_EMPTY:
 	case VIDC_1080P_ERROR_DMA_TX_NOT_COMPLETE:
 	case VIDC_1080P_ERROR_VSP_NOT_READY:
 	case VIDC_1080P_ERROR_BUFFER_FULL_STATE:
@@ -219,6 +218,7 @@ static u32 ddl_handle_core_recoverable_errors(
 			}
 			break;
 		}
+	case VIDC_1080P_ERROR_NON_IDR_FRAME_TYPE:
 	case VIDC_1080P_ERROR_BIT_STREAM_BUF_EXHAUST:
 	case VIDC_1080P_ERROR_DESCRIPTOR_TABLE_ENTRY_INVALID:
 	case VIDC_1080P_ERROR_MB_COEFF_NOT_DONE:
@@ -235,24 +235,28 @@ static u32 ddl_handle_core_recoverable_errors(
 	case VIDC_1080P_ERROR_MV_RANGE_ERR:
 	case VIDC_1080P_ERROR_PICTURE_STRUCTURE_ERR:
 	case VIDC_1080P_ERROR_SLICE_ADDR_INVALID:
-	case VIDC_1080P_ERROR_NON_FRAME_DATA_RECEIVED:
-	case VIDC_1080P_ERROR_INCOMPLETE_FRAME:
 	case VIDC_1080P_ERROR_NALU_HEADER_ERROR:
 	case VIDC_1080P_ERROR_SPS_PARSE_ERROR:
 	case VIDC_1080P_ERROR_PPS_PARSE_ERROR:
 	case VIDC_1080P_ERROR_HEADER_NOT_FOUND:
 	case VIDC_1080P_ERROR_SLICE_PARSE_ERROR:
 	case VIDC_1080P_ERROR_NON_PAIRED_FIELD_NOT_SUPPORTED:
+	case VIDC_1080P_ERROR_DESCRIPTOR_BUFFER_EMPTY:
 		vcd_status = VCD_ERR_BITSTREAM_ERR;
-		DDL_MSG_ERROR("VIDC_BIT_STREAM_ERR");
+		DDL_MSG_ERROR("VIDC_BIT_STREAM_ERR (%u)",
+			(u32)ddl_context->cmd_err_status);
 		break;
 	case VIDC_1080P_ERROR_B_FRAME_NOT_SUPPORTED:
 	case VIDC_1080P_ERROR_UNSUPPORTED_FEATURE_IN_PROFILE:
 	case VIDC_1080P_ERROR_RESOLUTION_NOT_SUPPORTED:
 		if (ddl->decoding) {
 			vcd_status = VCD_ERR_BITSTREAM_ERR;
-			DDL_MSG_ERROR("VIDC_BIT_STREAM_ERR");
+			DDL_MSG_ERROR("VIDC_BIT_STREAM_ERR (%u)",
+				(u32)ddl_context->cmd_err_status);
 		}
+		break;
+	case VIDC_1080P_ERROR_NON_FRAME_DATA_RECEIVED:
+		vcd_status = VCD_ERR_BITSTREAM_ERR;
 		break;
 	default:
 		break;
@@ -309,6 +313,8 @@ static u32 ddl_handle_core_warnings(u32 err_status)
 	case VIDC_1080P_WARN_BIT_RATE_NOT_SUPPORTED:
 	case VIDC_1080P_WARN_COLOR_DIFF_FORMAT_NOT_SUPPORTED:
 	case VIDC_1080P_WARN_NULL_EXTRA_METADATA_POINTER:
+	case VIDC_1080P_WARN_DEBLOCKING_NOT_DONE:
+	case VIDC_1080P_WARN_INCOMPLETE_FRAME:
 	case VIDC_1080P_ERROR_NULL_FW_DEBUG_INFO_POINTER:
 	case VIDC_1080P_ERROR_ALLOC_DEBUG_INFO_SIZE_INSUFFICIENT:
 	case VIDC_1080P_WARN_METADATA_NO_SPACE_NUM_CONCEAL_MB:
@@ -322,6 +328,9 @@ static u32 ddl_handle_core_warnings(u32 err_status)
 	case VIDC_1080P_WARN_METADATA_NO_SPACE_MB_INFO:
 	case VIDC_1080P_WARN_METADATA_NO_SPACE_SLICE_SIZE:
 	case VIDC_1080P_WARN_RESOLUTION_WARNING:
+	case VIDC_1080P_WARN_NO_LONG_TERM_REFERENCE:
+	case VIDC_1080P_WARN_NO_SPACE_MPEG2_DATA_DUMP:
+	case VIDC_1080P_WARN_METADATA_NO_SPACE_MISSING_MB:
 		status = true;
 		DDL_MSG_ERROR("VIDC_WARNING_IGNORED");
 	break;
@@ -360,7 +369,7 @@ u32 ddl_handle_core_errors(struct ddl_context *ddl_context)
 	disp_status = ddl_handle_core_warnings(
 		ddl_context->disp_pic_err_status);
 	if (!status && !disp_status) {
-		DDL_MSG_ERROR("ddl_warning:Unknown");
+		DDL_MSG_HIGH("ddl_warning:Unknown");
 		status = ddl_handle_hw_fatal_errors(ddl);
 		if (!status)
 			status = ddl_handle_core_recoverable_errors(ddl);
@@ -390,7 +399,7 @@ static u32 ddl_handle_dec_seq_hdr_fail_error(struct ddl_client_context *ddl)
 
 	if ((ddl->cmd_state != DDL_CMD_HEADER_PARSE) ||
 		(ddl->client_state != DDL_CLIENT_WAIT_FOR_INITCODECDONE)) {
-		DDL_MSG_ERROR("STATE-CRITICAL-HDDONE");
+		DDL_MSG_HIGH("STATE-CRITICAL-HDDONE");
 		return false;
 	}
 
@@ -626,6 +635,12 @@ void print_core_errors(u32 error_code)
 	case VIDC_1080P_WARN_NULL_EXTRA_METADATA_POINTER:
 		string = "VIDC_1080P_WARN_NULL_EXTRA_METADATA_POINTER";
 	break;
+	case VIDC_1080P_WARN_DEBLOCKING_NOT_DONE:
+		string = "VIDC_1080P_WARN_DEBLOCKING_NOT_DONE";
+	break;
+	case VIDC_1080P_WARN_INCOMPLETE_FRAME:
+		string = "VIDC_1080P_WARN_INCOMPLETE_FRAME";
+	break;
 	case VIDC_1080P_ERROR_NULL_FW_DEBUG_INFO_POINTER:
 		string = "VIDC_1080P_ERROR_NULL_FW_DEBUG_INFO_POINTER";
 	break;
@@ -665,6 +680,15 @@ void print_core_errors(u32 error_code)
 	break;
 	case VIDC_1080P_WARN_RESOLUTION_WARNING:
 		string = "VIDC_1080P_WARN_RESOLUTION_WARNING";
+	break;
+	case VIDC_1080P_WARN_NO_LONG_TERM_REFERENCE:
+		string = "VIDC_1080P_WARN_NO_LONG_TERM_REFERENCE";
+	break;
+	case VIDC_1080P_WARN_NO_SPACE_MPEG2_DATA_DUMP:
+		string = "VIDC_1080P_WARN_NO_SPACE_MPEG2_DATA_DUMP";
+	break;
+	case VIDC_1080P_WARN_METADATA_NO_SPACE_MISSING_MB:
+		string = "VIDC_1080P_WARN_METADATA_NO_SPACE_MISSING_MB";
 	break;
 	}
 	if (string)
@@ -733,9 +757,6 @@ void print_core_recoverable_errors(u32 error_code)
 	case VIDC_1080P_ERROR_NON_FRAME_DATA_RECEIVED:
 		string = "VIDC_1080P_ERROR_NON_FRAME_DATA_RECEIVED";
 	break;
-	case VIDC_1080P_ERROR_INCOMPLETE_FRAME:
-		string = "VIDC_1080P_ERROR_INCOMPLETE_FRAME";
-	break;
 	case VIDC_1080P_ERROR_NALU_HEADER_ERROR:
 		string = "VIDC_1080P_ERROR_NALU_HEADER_ERROR";
 	break;
@@ -750,6 +771,6 @@ void print_core_recoverable_errors(u32 error_code)
 	break;
 	}
 	if (string)
-		DDL_MSG_ERROR("Recoverable Error code = 0x%x : %s",
+		DDL_MSG_LOW("Recoverable Error code = 0x%x : %s",
 					  error_code, string);
 }

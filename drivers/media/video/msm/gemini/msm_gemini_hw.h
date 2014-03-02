@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,8 +15,8 @@
 
 #include <media/msm_gemini.h>
 #include "msm_gemini_hw_reg.h"
-#include <mach/msm_subsystem_map.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
+#include <mach/iommu_domains.h>
 
 struct msm_gemini_hw_buf {
 	struct msm_gemini_buf vbuf;
@@ -27,8 +27,6 @@ struct msm_gemini_hw_buf {
 	uint32_t cbcr_buffer_addr;
 	uint32_t cbcr_len;
 	uint32_t num_of_mcu_rows;
-	struct msm_mapped_buffer *msm_buffer;
-	int *subsystem_id;
 	struct ion_handle *handle;
 };
 
@@ -96,8 +94,11 @@ uint32_t msm_gemini_hw_read(struct msm_gemini_hw_cmd *hw_cmd_p);
 void msm_gemini_hw_write(struct msm_gemini_hw_cmd *hw_cmd_p);
 int msm_gemini_hw_wait(struct msm_gemini_hw_cmd *hw_cmd_p, int m_us);
 void msm_gemini_hw_delay(struct msm_gemini_hw_cmd *hw_cmd_p, int m_us);
-int msm_gemini_hw_exec_cmds(struct msm_gemini_hw_cmd *hw_cmd_p, int m_cmds);
+int msm_gemini_hw_exec_cmds(struct msm_gemini_hw_cmd *hw_cmd_p, uint32_t m_cmds);
 void msm_gemini_hw_region_dump(int size);
+void msm_gemini_io_dump(int size);
+void msm_gemini_io_w(uint32_t offset, uint32_t val);
+uint32_t msm_gemini_io_r(uint32_t offset);
 
 #define MSM_GEMINI_PIPELINE_CLK_128MHZ 128 /* 8MP  128MHz */
 #define MSM_GEMINI_PIPELINE_CLK_140MHZ 140 /* 9MP  140MHz */

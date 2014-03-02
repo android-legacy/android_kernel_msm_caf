@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Google, Inc.
- * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -65,6 +65,9 @@ void pcm_out_cb(uint32_t opcode, uint32_t token,
 	case ASM_DATA_EVENT_WRITE_DONE:
 		atomic_inc(&pcm->out_count);
 		wake_up(&pcm->write_wait);
+		break;
+	case RESET_EVENTS:
+		reset_device();
 		break;
 	default:
 		break;
@@ -257,6 +260,7 @@ static long pcm_out_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_GET_CONFIG: {
 		struct msm_audio_config config;
 		pr_debug("%s: AUDIO_GET_CONFIG\n", __func__);
+		memset(&config, 0, sizeof(config));
 		config.buffer_size = pcm->buffer_size;
 		config.buffer_count = pcm->buffer_count;
 		config.sample_rate = pcm->sample_rate;

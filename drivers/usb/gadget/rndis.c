@@ -34,7 +34,6 @@
 
 #include <asm/io.h>
 #include <asm/byteorder.h>
-#include <asm/system.h>
 #include <asm/unaligned.h>
 
 
@@ -159,25 +158,6 @@ static const u32 oid_supported_list[] =
 #endif	/* RNDIS_PM */
 };
 
-/* HACK: copied from net/core/dev.c to replace dev_get_stats since
- * dev_get_stats cannot be called from atomic context */
-static void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
-				    const struct net_device_stats *netdev_stats)
-{
-#if BITS_PER_LONG == 64
-	BUILD_BUG_ON(sizeof(*stats64) != sizeof(*netdev_stats));
-	memcpy(stats64, netdev_stats, sizeof(*stats64));
-#else
-	size_t i, n = sizeof(*stats64) / sizeof(u64);
-	const unsigned long *src = (const unsigned long *)netdev_stats;
-	u64 *dst = (u64 *)stats64;
-
-	BUILD_BUG_ON(sizeof(*netdev_stats) / sizeof(unsigned long) !=
-		     sizeof(*stats64) / sizeof(u64));
-	for (i = 0; i < n; i++)
-		dst[i] = src[i];
-#endif
-}
 
 /* NDIS Functions */
 static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
@@ -190,7 +170,7 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
 	rndis_query_cmplt_type *resp;
 	struct net_device *net;
 	struct rtnl_link_stats64 temp;
-	struct rtnl_link_stats64 *stats = &temp;
+	const struct rtnl_link_stats64 *stats;
 
 	if (!r) return -ENOMEM;
 	resp = (rndis_query_cmplt_type *)r->buf;
@@ -213,7 +193,7 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
 	resp->InformationBufferOffset = cpu_to_le32(16);
 
 	net = rndis_per_dev_params[configNr].dev;
-	netdev_stats_to_stats64(stats, &net->stats);
+	stats = dev_get_stats(net, &temp);
 
 	switch (OID) {
 
@@ -605,7 +585,7 @@ static int rndis_init_response(int configNr, rndis_init_msg_type *buf)
 	resp->MinorVersion = cpu_to_le32(RNDIS_MINOR_VERSION);
 	resp->DeviceFlags = cpu_to_le32(RNDIS_DF_CONNECTIONLESS);
 	resp->Medium = cpu_to_le32(RNDIS_MEDIUM_802_3);
-	resp->MaxPacketsPerTransfer = cpu_to_le32(1);
+	resp->MaxPacketsPerTransfer = cpu_to_le32(params->max_pkt_per_xfer);
 	resp->MaxTransferSize = cpu_to_le32(
 		  params->dev->mtu
 		+ sizeof(struct ethhdr)
@@ -922,6 +902,7 @@ int rndis_register(void (*resp_avail)(void *v), void *v)
 			rndis_per_dev_params[i].used = 1;
 			rndis_per_dev_params[i].resp_avail = resp_avail;
 			rndis_per_dev_params[i].v = v;
+			rndis_per_dev_params[i].max_pkt_per_xfer = 1;
 			pr_debug("%s: configNr = %d\n", __func__, i);
 			return i;
 		}
@@ -973,6 +954,13 @@ int rndis_set_param_medium(u8 configNr, u32 medium, u32 speed)
 	rndis_per_dev_params[configNr].speed = speed;
 
 	return 0;
+}
+
+void rndis_set_max_pkt_xfer(u8 configNr, u8 max_pkt_per_xfer)
+{
+	pr_debug("%s:\n", __func__);
+
+	rndis_per_dev_params[configNr].max_pkt_per_xfer = max_pkt_per_xfer;
 }
 
 void rndis_add_hdr(struct sk_buff *skb)
@@ -1166,10 +1154,14 @@ static struct proc_dir_entry *rndis_connect_state [RNDIS_MAX_CONFIGS];
 
 #endif /* CONFIG_USB_GADGET_DEBUG_FILES */
 
+static bool rndis_initialized;
 
 int rndis_init(void)
 {
 	u8 i;
+
+	if (rndis_initialized)
+		return 0;
 
 	for (i = 0; i < RNDIS_MAX_CONFIGS; i++) {
 #ifdef	CONFIG_USB_GADGET_DEBUG_FILES
@@ -1197,6 +1189,7 @@ int rndis_init(void)
 		INIT_LIST_HEAD(&(rndis_per_dev_params[i].resp_queue));
 	}
 
+	rndis_initialized = true;
 	return 0;
 }
 
@@ -1205,7 +1198,13 @@ void rndis_exit(void)
 #ifdef CONFIG_USB_GADGET_DEBUG_FILES
 	u8 i;
 	char name[20];
+#endif
 
+	if (!rndis_initialized)
+		return;
+	rndis_initialized = false;
+
+#ifdef CONFIG_USB_GADGET_DEBUG_FILES
 	for (i = 0; i < RNDIS_MAX_CONFIGS; i++) {
 		sprintf(name, NAME_TEMPLATE, i);
 		remove_proc_entry(name, NULL);

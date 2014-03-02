@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,9 +16,9 @@
 
 #include <linux/msm_vidc_enc.h>
 #include <linux/cdev.h>
+#include <media/msm/vidc_init.h>
 
-#include "vidc_init.h"
-
+#define NUM_OF_DRIVER_NODES 2
 #define VID_ENC_MAX_NUM_OF_BUFF 100
 
 enum venc_buffer_dir{
@@ -33,8 +33,8 @@ struct vid_enc_msg {
 
 struct vid_enc_dev {
 
-	struct cdev cdev;
-	struct device *device;
+	struct cdev cdev[NUM_OF_DRIVER_NODES];
+	struct device *device[NUM_OF_DRIVER_NODES];
 	resource_size_t phys_base;
 	void __iomem *virt_base;
 	unsigned int irq;
@@ -68,6 +68,9 @@ u32 vid_enc_set_get_framerate(struct video_client_ctx *client_ctx,
 
 u32 vid_enc_set_get_live_mode(struct video_client_ctx *client_ctx,
 		struct venc_switch *encoder_switch, u32 set_flag);
+
+u32 vid_enc_set_get_extradata(struct video_client_ctx *client_ctx,
+		u32 *extradata_flag, u32 set_flag);
 
 u32 vid_enc_set_get_short_header(struct video_client_ctx *client_ctx,
 		struct venc_switch *encoder_switch, u32 set_flag);
