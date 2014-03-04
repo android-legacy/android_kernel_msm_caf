@@ -25,6 +25,7 @@
 #else
 #include <linux/time.h>
 #endif
+#include <linux/msm_ion.h>
 
 #define MSM_CAM_IOCTL_MAGIC 'm'
 
