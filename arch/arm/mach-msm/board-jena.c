@@ -3662,7 +3662,7 @@ static struct platform_device *msm7627a_surf_ffa_devices[] __initdata = {
 	&fsa880_i2c_gpio_device,
 	&msm_device_pmic_leds,
 	&msm_vibrator_device,
-	&msm_adsp_device,
+//	&msm_adsp_device,
 #ifdef CONFIG_SAMSUNG_JACK
 	&sec_device_jack,
 #endif
