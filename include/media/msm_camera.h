@@ -748,6 +748,10 @@ struct outputCfg {
 #define OUTPUT_TYPE_CSTA   BIT(14)
 #define OUTPUT_TYPE_R2   BIT(15)
 
+#define CAMERA_AEC_CENTER_WEIGHTED		1
+#define CAMERA_AEC_SPOT_METERING		2
+#define CAMERA_AEC_FRAME_AVERAGE		0
+
 struct fd_roi_info {
 	void *info;
 	int info_len;
@@ -1050,10 +1054,12 @@ struct msm_snapshot_pp_status {
 #define CAMERA_EFFECT_GREENISH	14
 
 /* QRD */
+#if 0
 #define CAMERA_ANTIBANDING_OFF		0
 #define CAMERA_ANTIBANDING_50HZ		2
 #define CAMERA_ANTIBANDING_60HZ		1
 #define CAMERA_ANTIBANDING_AUTO		3
+#endif
 
 #define CAMERA_CONTRAST_LV0			0
 #define CAMERA_CONTRAST_LV1			1
@@ -1220,6 +1226,17 @@ enum msm_v4l2_power_line_frequency {
 #define CAMERA_ISO_TYPE_400            4
 #define CAMEAR_ISO_TYPE_800            5
 #define CAMERA_ISO_TYPE_1600           6
+
+#define CAMERA_EFFECT_OFF		0
+#define CAMERA_EFFECT_MONO		1
+#define CAMERA_EFFECT_NEGATIVE		2
+#define CAMERA_EFFECT_SOLARIZE		3
+#define CAMERA_EFFECT_SEPIA		4
+#define CAMERA_EFFECT_POSTERIZE		5
+#define CAMERA_EFFECT_WHITEBOARD	6
+#define CAMERA_EFFECT_BLACKBOARD	7
+#define CAMERA_EFFECT_AQUA		8
+#define CAMERA_EFFECT_MAX		9
 
 struct sensor_pict_fps {
 	uint16_t prevfps;
