@@ -827,13 +827,38 @@ static void memset32_io(u32 __iomem *_ptr, u32 val, size_t count)
 #endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_FB_MSM_MIPI_DSI_WHITESCREEN
+boolean wakeupflag = TRUE ; 
+#endif
 static void msmfb_early_suspend(struct early_suspend *h)
 {
+#ifdef CONFIG_FB_MSM_MIPI_DSI_WHITESCREEN
+	unsigned int waitcount = 5;
+	unsigned int sleepflag = 0;
+#endif
 	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
 						early_suspend);
 	struct msm_fb_panel_data *pdata = NULL;
 
+#ifdef CONFIG_FB_MSM_MIPI_DSI_WHITESCREEN
+	while(waitcount){
+		if (!mfd->bl_level){
+			sleepflag = 1;
+			break;
+		}
+		msleep(20);
+		waitcount--;
+	}
+	if(sleepflag){
+		msm_fb_suspend_sub(mfd);
+		wakeupflag = TRUE;
+	}
+	else {
+		wakeupflag = FALSE;
+	}
+#else
 	msm_fb_pan_idle(mfd);
+#endif
 #if defined(CONFIG_FB_MSM_MDP303)
 	/*
 	* For MDP with overlay, set framebuffer with black pixels
@@ -885,7 +910,9 @@ static void msmfb_early_resume(struct early_suspend *h)
 			pdata->power_ctrl(TRUE);
 		}
 	}
-
+#ifdef CONFIG_FB_MSM_MIPI_DSI_WHITESCREEN
+	if(wakeupflag)
+#endif
 	msm_fb_resume_sub(mfd);
 }
 #endif

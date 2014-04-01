@@ -113,6 +113,10 @@ config FB_MSM_MIPI_DSI
 	bool
 	default n
 
+config FB_MSM_MIPI_DSI_WHITESCREEN
+	bool
+	default n
+
 config FB_MSM_LCDC
 	bool
 	default n
