@@ -113,10 +113,6 @@ config FB_MSM_MIPI_DSI
 	bool
 	default n
 
-config FB_MSM_MIPI_DSI_WHITESCREEN
-	bool
-	default n
-
 config FB_MSM_LCDC
 	bool
 	default n
@@ -531,6 +527,8 @@ config FB_MSM_LCDC_JENA_HVGA_PANEL
 	depends on FB_MSM_LCDC_HW
 	bool "FB MSM LCDC JENA HVGA Panel"
 	select FB_MSM_LCDC_JENA_HVGA
+        select FB_MSM_WHITESCREEN
+
 	default n
 	---help---
 	  Support for LCDC JENA HVGA (320x480) panel
