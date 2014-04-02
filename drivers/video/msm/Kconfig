@@ -35,6 +35,10 @@ config FB_MSM_TRIPLE_BUFFER
 	bool "Support for triple frame buffer"
 	default n
 
+config FB_MSM_WHITESCREEN
+	bool
+	default n
+
 config FB_MSM_MDP_HW
 	bool
 	default n
