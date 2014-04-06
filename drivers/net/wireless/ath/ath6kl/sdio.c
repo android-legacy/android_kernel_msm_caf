@@ -1433,9 +1433,19 @@ static struct sdio_driver ath6kl_sdio_driver = {
 	.drv.pm = ATH6KL_SDIO_PM_OPS,
 };
 
+#ifdef CONFIG_MACH_JENA
+extern void wlan_setup_power(int on, int detect);
+#define ATH6KL_ENABLE_ANDROID 1
+#endif
+
 static int __init ath6kl_sdio_init(void)
 {
 	int ret;
+
+#ifdef ATH6KL_ENABLE_ANDROID
+	printk("%s()", __func__);
+	wlan_setup_power(1, 1);
+#endif
 
 	ret = sdio_register_driver(&ath6kl_sdio_driver);
 	if (ret)
@@ -1447,6 +1457,9 @@ static int __init ath6kl_sdio_init(void)
 static void __exit ath6kl_sdio_exit(void)
 {
 	sdio_unregister_driver(&ath6kl_sdio_driver);
+#ifdef ATH6KL_ENABLE_ANDROID
+	wlan_setup_power(0, 1);
+#endif
 }
 
 module_init(ath6kl_sdio_init);
