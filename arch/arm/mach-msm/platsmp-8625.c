@@ -173,7 +173,7 @@ static int  __cpuinit msm8625_release_secondary(unsigned int cpu)
 	return 0;
 }
 
-void __iomem *core_reset_base(unsigned int cpu)
+void __iomem *core1_reset_base(unsigned int cpu)
 {
 	return cpu_data[cpu].reset_core_base;
 }
