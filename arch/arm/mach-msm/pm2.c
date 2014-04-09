@@ -880,7 +880,7 @@ static int msm_pm_power_collapse
 
 
 	/* clear C0 jump location */
-	*(uint32_t *)(virt_start_ptr + 0x40) = 0x0;
+	*(uint32_t *)(virt_start_ptr + 0x40) = 0xBEEFDEAD;
 
 	*(uint32_t *)(virt_start_ptr + 0x30) = 0x1;
 	/* This location tell us we are doing a PC */
@@ -1329,7 +1329,7 @@ static int __ref msm_pm_power_collapse_standalone(bool from_idle)
 		*(uint32_t *)(virt_start_ptr + 0x20) = 0x1;
 
 		/* clear C0 jump location */
-		*(uint32_t *)(virt_start_ptr + 0x40) = 0x0;
+		*(uint32_t *)(virt_start_ptr + 0x40) = 0xDEADBEEF;
 
 		break;
 	case 1:
@@ -1347,7 +1347,7 @@ static int __ref msm_pm_power_collapse_standalone(bool from_idle)
 			*(uint32_t *)(virt_start_ptr + 0x24) = 0x2;
 
 		/* clear C1 jump location */
-		*(uint32_t *)(virt_start_ptr + 0x44) = 0x0;
+		*(uint32_t *)(virt_start_ptr + 0x44) = 0xDEADBEEF;
 		break;
 	case 2:
 		*(uint32_t *)(virt_start_ptr + 0x18) = 0x1;
@@ -1364,7 +1364,7 @@ static int __ref msm_pm_power_collapse_standalone(bool from_idle)
 			*(uint32_t *)(virt_start_ptr + 0x28) = 0x2;
 
 		/* clear C2 location */
-		*(uint32_t *)(virt_start_ptr + 0x48) = 0x0;
+		*(uint32_t *)(virt_start_ptr + 0x48) = 0xDEADBEEF;
 		break;
 	case 3:
 		*(uint32_t *)(virt_start_ptr + 0x1C) = 0x1;
@@ -1381,7 +1381,7 @@ static int __ref msm_pm_power_collapse_standalone(bool from_idle)
 			*(uint32_t *)(virt_start_ptr + 0x2C) = 0x2;
 
 		/* clear C3 jump location */
-		*(uint32_t *)(virt_start_ptr + 0x4C) = 0x0;
+		*(uint32_t *)(virt_start_ptr + 0x4C) = 0xDEADBEEF;
 		break;
 	}
 
