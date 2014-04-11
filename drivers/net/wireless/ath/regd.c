@@ -15,9 +15,7 @@
  */
 
 #include <linux/kernel.h>
-#if 0 // by bbelief
 #include <linux/export.h>
-#endif
 #include <net/cfg80211.h>
 #include <net/mac80211.h>
 #include "regd.h"
