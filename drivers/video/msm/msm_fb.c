@@ -974,10 +974,14 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 	struct msm_fb_panel_data *pdata;
 	__u32 temp = bkl_lvl;
 
-	unset_bl_level = bkl_lvl;
 
-	if (!mfd->panel_power_on || !bl_updated)
+	if (!mfd->panel_power_on || !bl_updated) {
+		mfd->bl_level = bkl_lvl;
+		unset_bl_level = bkl_lvl;
 		return;
+	} else {
+		unset_bl_level = 0;
+	}
 
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
@@ -1009,6 +1013,7 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on) {
+			msleep(16);
 			ret = pdata->on(mfd->pdev);
 			if (ret == 0) {
 				down(&mfd->sem);
@@ -1031,7 +1036,9 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			curr_pwr_state = mfd->panel_power_on;
 			down(&mfd->sem);
 			mfd->panel_power_on = FALSE;
+#ifndef CONFIG_MACH_JENA
 			if (mfd->fbi->node == 0)
+#endif
 				bl_updated = 0;
 			up(&mfd->sem);
 			cancel_delayed_work_sync(&mfd->backlight_worker);
@@ -2015,6 +2022,7 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 	struct fb_var_screeninfo *var = &disp_commit->var;
 	u32 wait_for_finish = disp_commit->wait_for_finish;
 	int ret = 0;
+	struct msm_fb_panel_data *pdata;
 	if (disp_commit->flags &
 		MDP_DISPLAY_COMMIT_OVERLAY) {
 		if (!mfd->panel_power_on) /* suspended */
@@ -2071,6 +2079,20 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 	mutex_unlock(&mfd->sync_mutex);
 	if (wait_for_finish)
 		msm_fb_pan_idle(mfd);
+        if (unset_bl_level && !bl_updated) {
+                pdata = (struct msm_fb_panel_data *)mfd->pdev->
+                        dev.platform_data;
+                if ((pdata) && (pdata->set_backlight)) {
+                        msleep(200);
+                        down(&mfd->sem);
+                        mfd->bl_level = unset_bl_level;
+                        pdata->set_backlight(mfd);
+                        bl_level_old = unset_bl_level;
+                        up(&mfd->sem);
+                        bl_updated = 1;
+                }
+        }
+
 	return ret;
 }
 
@@ -2107,7 +2129,6 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	struct mdp_dirty_region dirty;
 	struct mdp_dirty_region *dirtyPtr = NULL;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	struct msm_fb_panel_data *pdata;
 
 	/*
 	 * If framebuffer is 2, io pen display is not allowed.
@@ -2201,19 +2222,6 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 		pr_err("%s: unmap secure res failed\n", __func__);
 #endif
 	up(&msm_fb_pan_sem);
-	if (unset_bl_level && !bl_updated) {
-		pdata = (struct msm_fb_panel_data *)mfd->pdev->
-			dev.platform_data;
-		if ((pdata) && (pdata->set_backlight)) {
-			msleep(200);
-			down(&mfd->sem);
-			mfd->bl_level = unset_bl_level;
-			pdata->set_backlight(mfd);
-			bl_level_old = unset_bl_level;
-			up(&mfd->sem);
-			bl_updated = 1;
-		}
-	}
 
 	if (!bl_updated)
 		schedule_delayed_work(&mfd->backlight_worker,
@@ -3433,6 +3441,21 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 
 	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
 		mdp_free_splash_buffer(mfd);
+
+#ifdef CONFIG_MACH_JENA
+        if (unset_bl_level && !bl_updated) {
+                pdata = (struct msm_fb_panel_data *)mfd->pdev->
+                        dev.platform_data;
+                if ((pdata) && (pdata->set_backlight)) {
+                        down(&mfd->sem);
+                        mfd->bl_level = unset_bl_level;
+                        pdata->set_backlight(mfd);
+                        bl_level_old = unset_bl_level;
+                        up(&mfd->sem);
+                        bl_updated = 1;
+                }
+        }
+#endif
 
 	return ret;
 }
