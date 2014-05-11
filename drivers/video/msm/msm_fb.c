@@ -1052,9 +1052,6 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 				memset((void *)info->screen_base, 0,
 				       info->fix.smem_len);
 
-			// let screen light off smoothly, because backlight is turning off in another thread now
-			// if need delay more, please set it in the pdata->off()
-			msleep(16);
 			ret = pdata->off(mfd->pdev);
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
@@ -2101,13 +2098,20 @@ static void bl_workqueue_handler(struct work_struct *work)
 	struct msm_fb_data_type *mfd = container_of(to_delayed_work(work),
 				struct msm_fb_data_type, backlight_worker);
 	struct msm_fb_panel_data *pdata = mfd->pdev->dev.platform_data;
+	__u32 temp = unset_bl_level;
 
 	down(&mfd->sem);
 	if ((pdata) && (pdata->set_backlight) && (!bl_updated)
 					&& (mfd->panel_power_on)) {
-	mfd->bl_level = unset_bl_level;
+
+#ifdef CONFIG_MACH_JENA
+		msleep(200);
+#endif
+		msm_fb_scale_bl(mfd->panel_info.bl_max, &temp);
+		mfd->bl_level = temp;
 		pdata->set_backlight(mfd);
 		bl_level_old = unset_bl_level;
+		mfd->bl_level = unset_bl_level;
 		bl_updated = 1;
 	}
 	up(&mfd->sem);
