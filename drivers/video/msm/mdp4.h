@@ -695,7 +695,7 @@ uint32 mdp4_rgb_igc_lut_cvt(uint32 ndx);
 void mdp4_vg_qseed_init(int);
 int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req);
 
-#if defined (CONFIG_FB_MSM_MIPI_DSI) || defined(CONFIG_FB_MSM_MDP30)
+#ifdef CONFIG_FB_MSM_MIPI_DSI
 void mdp4_dsi_cmd_blt_start(struct msm_fb_data_type *mfd);
 void mdp4_dsi_cmd_blt_stop(struct msm_fb_data_type *mfd);
 void mdp4_dsi_video_blt_start(struct msm_fb_data_type *mfd);
@@ -899,7 +899,7 @@ void mdp4_overlay_resource_release(void);
 uint32_t mdp4_ss_table_value(int8_t param, int8_t index);
 void mdp4_overlay_borderfill_stage_down(struct mdp4_overlay_pipe *pipe);
 
-#ifdef CONFIG_FB_MSM_MDP303
+#if defined(CONFIG_FB_MSM_MDP303) || defined(CONFIG_FB_MSM_MDP30)
 static inline int mdp4_overlay_borderfill_supported(void)
 {
 	return 0;
