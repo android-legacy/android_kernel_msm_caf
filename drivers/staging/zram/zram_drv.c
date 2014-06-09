@@ -310,14 +310,8 @@ static void zram_free_page(struct zram *zram, size_t index)
 
 	zs_free(meta->mem_pool, handle);
 
-	if (is_partial_io(bvec)) {
-		/* Use  a temporary buffer to decompress the page */
-		uncmem = kmalloc(PAGE_SIZE, GFP_NOIO);
-		if (!uncmem) {
-			pr_info("Error allocating temp memory!\n");
-			return -ENOMEM;
-		}
-	}
+	if (size <= PAGE_SIZE / 2)
+		zram->stats.good_compress--;
 
 	atomic64_sub(meta->table[index].size, &zram->stats.compr_size);
 	zram->stats.pages_stored--;
