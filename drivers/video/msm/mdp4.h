@@ -695,7 +695,7 @@ uint32 mdp4_rgb_igc_lut_cvt(uint32 ndx);
 void mdp4_vg_qseed_init(int);
 int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req);
 
-#ifdef CONFIG_FB_MSM_MIPI_DSI
+#if defined (CONFIG_FB_MSM_MIPI_DSI) || defined(CONFIG_FB_MSM_MDP30)
 void mdp4_dsi_cmd_blt_start(struct msm_fb_data_type *mfd);
 void mdp4_dsi_cmd_blt_stop(struct msm_fb_data_type *mfd);
 void mdp4_dsi_video_blt_start(struct msm_fb_data_type *mfd);
@@ -793,7 +793,7 @@ void mdp4_dsi_cmd_dma_busy_check(void);
 
 
 
-#ifdef CONFIG_FB_MSM_MIPI_DSI
+#if defined (CONFIG_FB_MSM_MIPI_DSI) || defined(CONFIG_FB_MSM_MDP30)
 int mdp4_dsi_cmd_on(struct platform_device *pdev);
 int mdp4_dsi_cmd_off(struct platform_device *pdev);
 int mdp4_dsi_video_off(struct platform_device *pdev);
@@ -808,7 +808,7 @@ void mdp4_dsi_cmd_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_video_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_cmd_vsync_ctrl(struct fb_info *info, int enable);
 void mdp4_dsi_video_vsync_ctrl(struct fb_info *info, int enable);
-#ifdef CONFIG_FB_MSM_MDP303
+#if defined ( CONFIG_FB_MSM_MDP303) || defined(CONFIG_FB_MSM_MDP30)
 static inline void mdp4_dsi_cmd_del_timer(void)
 {
 	/* empty */
@@ -984,7 +984,7 @@ int mdp4_wfd_pipe_commit(struct msm_fb_data_type *mfd, int cndx, int wait);
 #ifdef CONFIG_FB_MSM_OVERLAY
 int mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd);
 #else
-static inline void mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd);
+static inline void mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd)
 {
 	/* empty */
 	return 0;
