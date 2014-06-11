@@ -793,7 +793,7 @@ void mdp4_dsi_cmd_dma_busy_check(void);
 
 
 
-#ifdef CONFIG_FB_MSM_MIPI_DSI
+#if defined (CONFIG_FB_MSM_MIPI_DSI) || defined(CONFIG_FB_MSM_MDP30)
 int mdp4_dsi_cmd_on(struct platform_device *pdev);
 int mdp4_dsi_cmd_off(struct platform_device *pdev);
 int mdp4_dsi_video_off(struct platform_device *pdev);
@@ -808,7 +808,7 @@ void mdp4_dsi_cmd_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_video_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_cmd_vsync_ctrl(struct fb_info *info, int enable);
 void mdp4_dsi_video_vsync_ctrl(struct fb_info *info, int enable);
-#ifdef CONFIG_FB_MSM_MDP303
+#if defined ( CONFIG_FB_MSM_MDP303) || defined(CONFIG_FB_MSM_MDP30)
 static inline void mdp4_dsi_cmd_del_timer(void)
 {
 	/* empty */
@@ -817,7 +817,7 @@ static inline void mdp4_dsi_cmd_del_timer(void)
 void mdp4_dsi_cmd_del_timer(void);
 #endif
 #else  /* CONFIG_FB_MSM_MIPI_DSI */
-#if 0
+
 static inline int mdp4_dsi_cmd_on(struct platform_device *pdev)
 {
 	return 0;
@@ -834,7 +834,6 @@ static inline int mdp4_dsi_video_off(struct platform_device *pdev)
 {
 	return 0;
 }
-#endif
 static inline void mdp4_primary_vsync_dsi_video(void)
 {
 }
@@ -900,7 +899,7 @@ void mdp4_overlay_resource_release(void);
 uint32_t mdp4_ss_table_value(int8_t param, int8_t index);
 void mdp4_overlay_borderfill_stage_down(struct mdp4_overlay_pipe *pipe);
 
-#ifdef CONFIG_FB_MSM_MDP303
+#if defined(CONFIG_FB_MSM_MDP303) || defined(CONFIG_FB_MSM_MDP30)
 static inline int mdp4_overlay_borderfill_supported(void)
 {
 	return 0;
@@ -985,9 +984,10 @@ int mdp4_wfd_pipe_commit(struct msm_fb_data_type *mfd, int cndx, int wait);
 #ifdef CONFIG_FB_MSM_OVERLAY
 int mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd);
 #else
-static inline void mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd);
+static inline void mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd)
+{
+	/* empty */
+	return 0;
+}
 #endif
-int mdp4_update_base_blend(struct msm_fb_data_type *mfd,
-        struct mdp_blend_cfg *mdp_blend_cfg);
-u32 mdp4_get_mixer_num(u32 panel_type);
 #endif /* MDP_H */
