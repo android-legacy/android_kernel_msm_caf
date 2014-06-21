@@ -32,14 +32,10 @@ static uint32_t restart_reason = 0x776655AA;
 
 static void msm_pm_power_off(void)
 {
-	msm_rpcrouter_close();
 	/* Disable interrupts */
 	local_irq_disable();
 	unsigned long flags;
 	unsigned int power_off_reason;
-
-	/* Disable interrupts */
-	local_irq_disable();
 
 	sec_get_param(param_power_off_reason, &power_off_reason);
 	power_off_reason = power_off_reason | 0x40;
@@ -58,7 +54,6 @@ static void msm_pm_power_off(void)
 
 static void msm_pm_restart(char str, const char *cmd)
 {
-	msm_rpcrouter_close();
 	unsigned size;
 	unsigned long flags;
 	unsigned int power_off_reason;
