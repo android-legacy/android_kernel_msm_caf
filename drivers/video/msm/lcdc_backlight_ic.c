@@ -147,7 +147,7 @@ void aat1401_set_brightness(int level)
 		if (level < MIN_BRIGHTNESS_VALUE) {
 			tune_level = AAT_DIMMING_VALUE; /* DIMMING */
 		} else {
-			for (i = 0; i < MAX_BRT_STAGE_AAT; i++) {
+			for (i = 0; i < MAX_BRT_STAGE_AAT - 1; i++) {
 				if (level <= brt_table_aat[i].level
 					&& level > brt_table_aat[i+1].level) {
 					tune_level = brt_table_aat[i].tune_level;
@@ -183,7 +183,7 @@ void ktd253_set_brightness(int level)
 		if (level < MIN_BRIGHTNESS_VALUE) {
 			tune_level = AAT_DIMMING_VALUE; /* DIMMING */
 		} else {
-			for (i = 0; i < MAX_BRT_STAGE_AAT; i++) {
+			for (i = 0; i < MAX_BRT_STAGE_AAT - 1; i++) {
 				if (level <= brt_table_aat[i].level
 					&& level > brt_table_aat[i+1].level) {
 					tune_level = brt_table_aat[i].tune_level;
