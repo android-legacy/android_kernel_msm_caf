@@ -47,7 +47,7 @@ static int spi_sdi;
 
 static int lcd_reset;
 
-//#define ESD_RECOVERY
+#define ESD_RECOVERY
 #ifdef ESD_RECOVERY
 static unsigned int lcd_det_irq;
 static struct delayed_work lcd_reset_work;
