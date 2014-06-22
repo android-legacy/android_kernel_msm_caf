@@ -21,6 +21,7 @@
 #include <mach/proc_comm.h>
 
 #include "devices-msm7x2xa.h"
+#include "smd_rpcrouter.h"
 
 #include "smd_private.h"
 #include <linux/sec_param.h>
