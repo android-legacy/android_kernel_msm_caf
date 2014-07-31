@@ -317,3 +317,11 @@ config OV7695_RAW
 	default n
 	---help---
 	  Omni Vision BAYER Sensor for QRD Devices
+
+config MSM_CAMERA_PMEM
+	bool "PMEM camera support"
+	depends on ANDROID_PMEM
+	default y if ANDROID_PMEM
+	--help---
+	  This conditionally disables ION support in the MSM camera drivers, in
+	  order to support older proprietary camera drivers.
