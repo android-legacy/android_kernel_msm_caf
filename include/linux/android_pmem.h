@@ -155,6 +155,16 @@ struct android_pmem_platform_data
 	 * indicates this pmem may be reused via fmem
 	 */
 	int reusable;
+	/*
+	 * private data
+	 */
+	void *private_data;
+#ifdef CONFIG_ANDROID_PMEM_ION_WRAPPER
+	/*
+	 * ion heap id
+	 */
+	unsigned int ion_heap_id;
+#endif
 };
 
 int pmem_setup(struct android_pmem_platform_data *pdata,
