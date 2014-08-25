@@ -12,7 +12,6 @@
  */
 
 #include <linux/vmalloc.h>
-#include <mach/board.h>
 
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
@@ -837,8 +836,6 @@ int adreno_dump(struct kgsl_device *device, int manual)
 				cur_pt_base);
 		}
 	}
-	if (num_iommu_units)
-		kfree(reg_map_array);
 
 	/* Restore cur_pt_base back to the pt_base of
 	   the process in whose context the GPU hung */

@@ -834,7 +834,7 @@ static int mipi_dsi_long_read_resp(struct dsi_buf *rp)
 	return len;
 }
 
-void mipi_dsi_host_init(struct mipi_panel_info *pinfo, char dlane_swap)
+void mipi_dsi_host_init(struct mipi_panel_info *pinfo)
 {
 	uint32 dsi_ctrl, intr_ctrl;
 	uint32 data;
@@ -925,7 +925,7 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo, char dlane_swap)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0080, data); /* DSI_TRIG_CTRL */
 
 	/* DSI_LAN_SWAP_CTRL */
-	MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, dlane_swap);
+	MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, pinfo->dlane_swap);
 
 	/* clock out ctrl */
 	data = pinfo->t_clk_post & 0x3f;	/* 6 bits */
@@ -1249,6 +1249,9 @@ int mipi_dsi_cmds_single_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds,
 	mipi_dsi_cmd_dma_tx(tp);
 	kfree(cmds_tx);
 
+	if (video_mode)
+		MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl); /* restore */
+
 	return cnt;
 }
 
@@ -1278,7 +1281,6 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 {
 	int cnt, len, diff, pkt_size;
 	char cmd;
-	unsigned long flag;
 
 	if (mfd->panel_info.mipi.no_max_pkt_size) {
 		/* Only support rlen = 4*n */

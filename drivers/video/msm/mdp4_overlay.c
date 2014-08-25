@@ -461,11 +461,6 @@ int mdp4_overlay_borderfill_supported(void)
 	return (mdp_rev >= MDP_REV_42);
 }
 
-int mdp4_overlay_borderfill_supported(void)
-{
-	return (ctrl->hw_version >= 0x0402030b);
-}
-
 void mdp4_overlay_dmae_cfg(struct msm_fb_data_type *mfd, int atv)
 {
 	uint32	dmae_cfg_reg;
@@ -2660,18 +2655,6 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		return -ERANGE;
 	}
 
-	if (mdp_rev <= MDP_REV_41) {
-		if ((mdp4_overlay_format2type(req->src.format) ==
-			OVERLAY_TYPE_RGB) &&
-			!(req->flags & MDP_OV_PIPE_SHARE) &&
-			((req->src_rect.w > req->dst_rect.w) ||
-			 (req->src_rect.h > req->dst_rect.h))) {
-			mdp4_stat.err_size++;
-			pr_err("%s: downscale on RGB pipe!\n", __func__);
-			return -EINVAL;
-		}
-	}
-
 	if (mdp_hw_revision == MDP4_REVISION_V1) {
 		/*  non integer down saceling ratio  smaller than 1/4
 		 *  is not supportted
@@ -3449,34 +3432,23 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 	unsigned long *start, unsigned long *len, struct file **srcp_file,
 	int *p_need, struct ion_handle **srcp_ihdl)
 {
-	u32 pclk;
-	u32 xscale, yscale;
-	u32 hsync = 0;
-	u32 shift = 16;
-	u64 rst;
-	int ret = -EINVAL;
+	struct file *file;
+	int put_needed, ret = 0, fb_num;
+#ifdef CONFIG_ANDROID_PMEM
+	unsigned long vstart;
+#endif
+	*p_need = 0;
 
-	if (!pipe) {
-		pr_err("%s: pipe is null!\n", __func__);
-		pipe->req_bw = OVERLAY_PERF_LEVEL4;
-		return ret;
-	}
-	if (!mfd) {
-		pr_err("%s: mfd is null!\n", __func__);
-		pipe->req_bw = OVERLAY_PERF_LEVEL4;
-		return ret;
+	if (img->flags & MDP_BLIT_SRC_GEM) {
+		*srcp_file = NULL;
+		return kgsl_gem_obj_addr(img->memory_id, (int) img->priv,
+					 start, len);
 	}
 
-	/*
-	 * Serveral special cases require the max mdp clk but cannot
-	 * be explained by mdp clk equation.
-	 */
-	if (pipe->flags & MDP_DEINTERLACE) {
-		pr_info("%s deinterlace requires max mdp clk.\n",
-			__func__);
-		pipe->req_clk = mdp_max_clk;
-		return 0;
-	}
+	if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
+		file = fget_light(img->memory_id, &put_needed);
+		if (file == NULL)
+			return -EINVAL;
 
 		pipe->flags |= MDP_MEMORY_ID_TYPE_FB;
 		if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
@@ -3494,62 +3466,57 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 			fput_light(file, put_needed);
 		return ret;
 	}
-	pr_debug("%s: mdp panel pixel clk is %d.\n",
-		 __func__, pclk);
 
-	if (!pipe->dst_h) {
-		pr_err("%s: pipe dst_h is zero!\n", __func__);
-		pipe->req_clk = mdp_max_clk;
-		return ret;
-	}
-
-	if (!pipe->src_h) {
-		pr_err("%s: pipe src_h is zero!\n", __func__);
-		pipe->req_clk = mdp_max_clk;
-		return ret;
-	}
-
-	if (!pipe->dst_w) {
-		pr_err("%s: pipe dst_w is zero!\n", __func__);
-		pipe->req_clk = mdp_max_clk;
-		return ret;
-	}
-
-	if (!pipe->dst_h) {
-		pr_err("%s: pipe dst_h is zero!\n", __func__);
-		pipe->req_clk = mdp_max_clk;
-		return ret;
-	}
-
-	/*
-	 * For the scaling cases, make more margin by removing porch
-	 * values and adding extra 20%.
-	 */
-	if ((pipe->src_h != pipe->dst_h) ||
-	    (pipe->src_w != pipe->dst_w)) {
-		hsync = mfd->panel_info.xres;
-		hsync *= 100;
-		hsync /= 120;
-		pr_debug("%s: panel hsync is %d. with scaling\n",
-			__func__, hsync);
-
-	} else {
-		hsync = mfd->panel_info.lcdc.h_back_porch +
-			mfd->panel_info.lcdc.h_front_porch +
-			mfd->panel_info.lcdc.h_pulse_width +
-			mfd->panel_info.xres;
-		pr_debug("%s: panel hsync is %d.\n",
-			__func__, hsync);
-	}
-
-	if (!hsync) {
-		pipe->req_clk = mdp_max_clk;
-		pr_err("%s: panel hsync is zero!\n", __func__);
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	return mdp4_overlay_iommu_map_buf(img->memory_id, pipe, plane,
+		start, len, srcp_ihdl);
+#endif
+#ifdef CONFIG_ANDROID_PMEM
+	if (!get_pmem_file(img->memory_id, start, &vstart,
+					    len, srcp_file))
 		return 0;
-	}
+	else
+		return -EINVAL;
+#endif
+}
 
-	xscale = mfd->panel_info.xres;
-	xscale += pipe->src_w;
+#ifdef CONFIG_FB_MSM_MIPI_DSI
+int mdp4_overlay_3d_sbys(struct fb_info *info, struct msmfb_overlay_3d *req)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	int ret = -EPERM;
+
+	if (mutex_lock_interruptible(&mfd->dma->ov_mutex))
+		return -EINTR;
+
+	if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD) {
+		mdp4_dsi_cmd_3d_sbys(mfd, req);
+		ret = 0;
+	} else if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) {
+		mdp4_dsi_video_3d_sbys(mfd, req);
+		ret = 0;
+	}
+	mutex_unlock(&mfd->dma->ov_mutex);
+
+	return ret;
+}
+#else
+int mdp4_overlay_3d_sbys(struct fb_info *info, struct msmfb_overlay_3d *req)
+{
+	/* do nothing */
+	return -EPERM;
+}
+#endif
+
+int mdp4_overlay_blt(struct fb_info *info, struct msmfb_overlay_blt *req)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+
+	if (mfd == NULL)
+		return -ENODEV;
+
+	if (mutex_lock_interruptible(&mfd->dma->ov_mutex))
+		return -EINTR;
 
 	if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD)
 		mdp4_dsi_cmd_overlay_blt(mfd, req);
@@ -3564,13 +3531,6 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 
 	return 0;
 }
-#else
-int mdp4_overlay_3d_sbys(struct fb_info *info, struct msmfb_overlay_3d *req)
-{
-	/* do nothing */
-	return -EPERM;
-}
-#endif
 
 int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req)
 {
@@ -3673,7 +3633,6 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 int mdp4_overlay_unset_mixer(int mixer)
 {
 	struct mdp4_overlay_pipe *pipe;
-	struct mdp4_overlay_pipe *orgpipe;
 	int i, cnt = 0;
 
 	/* free pipe besides base layer pipe */
@@ -3783,44 +3742,6 @@ int mdp4_overlay_vsync_ctrl(struct fb_info *info, int enable)
 
 	if (!mfd->panel_power_on)
 		return -EINVAL;
-
-	if (enable)
-		cmd = 1;
-	else
-		cmd = 0;
-
-	if (!hdmi_prim_display && info->node == 0) {
-		if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO)
-			mdp4_dsi_video_vsync_ctrl(info, cmd);
-		else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD)
-			mdp4_dsi_cmd_vsync_ctrl(info, cmd);
-		else if (ctrl->panel_mode & MDP4_PANEL_LCDC)
-			mdp4_lcdc_vsync_ctrl(info, cmd);
-	} else if (hdmi_prim_display || info->node == 1)
-		mdp4_dtv_vsync_ctrl(info, cmd);
-
-	return 0;
-}
-
-int mdp4_overlay_wait4vsync(struct fb_info *info, long long *vtime)
-{
-	if (!hdmi_prim_display && info->node == 0) {
-		if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO)
-			mdp4_dsi_video_wait4vsync(0, vtime);
-		else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD)
-			mdp4_dsi_cmd_wait4vsync(0, vtime);
-		else if (ctrl->panel_mode & MDP4_PANEL_LCDC)
-			mdp4_lcdc_wait4vsync(0, vtime);
-	} else if (hdmi_prim_display || info->node == 1) {
-		mdp4_dtv_wait4vsync(0, vtime);
-	}
-
-	return 0;
-}
-
-int mdp4_overlay_vsync_ctrl(struct fb_info *info, int enable)
-{
-	int cmd;
 
 	if (enable)
 		cmd = 1;

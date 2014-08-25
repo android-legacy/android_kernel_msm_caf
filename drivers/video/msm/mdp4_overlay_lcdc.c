@@ -742,8 +742,6 @@ int mdp4_lcdc_off(struct platform_device *pdev)
 	int mixer = 0;
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
-	vctrl = &vsync_ctrl_db[cndx];
-	pipe = vctrl->base_pipe;
 
 	mutex_lock(&mfd->dma->ov_mutex);
 	vctrl = &vsync_ctrl_db[cndx];
@@ -1061,11 +1059,4 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
-
-	if (pipe->ov_blt_addr)
-		mdp4_lcdc_wait4ov(0);
-	else
-		mdp4_lcdc_wait4dmap(0);
-
-	mdp4_overlay_mdp_perf_upd(mfd, 0);
 }

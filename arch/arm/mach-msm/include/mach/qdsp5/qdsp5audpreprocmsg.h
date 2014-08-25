@@ -82,5 +82,4 @@ typedef struct {
 	 unsigned short	err_index;
 } __attribute__((packed)) audpreproc_msg_error_msg_id;
 
-#define AUDPREPROC_MSG_FEAT_QUERY_DM_DONE 0x0003
 #endif

@@ -194,4 +194,21 @@ int audmgr_open(struct audmgr *am);
 int audmgr_close(struct audmgr *am);
 int audmgr_enable(struct audmgr *am, struct audmgr_config *cfg);
 int audmgr_disable(struct audmgr *am);
+
+typedef void (*audpp_event_func)(void *private, unsigned id, uint16_t *msg);
+
+int audpp_enable(int id, audpp_event_func func, void *private);
+void audpp_disable(int id, void *private);
+
+int audpp_send_queue1(void *cmd, unsigned len);
+int audpp_send_queue2(void *cmd, unsigned len);
+int audpp_send_queue3(void *cmd, unsigned len);
+
+int audpp_set_volume_and_pan(unsigned id, unsigned volume, int pan);
+int audpp_pause(unsigned id, int pause);
+int audpp_flush(unsigned id);
+void audpp_avsync(int id, unsigned rate);
+unsigned audpp_avsync_sample_count(int id);
+unsigned audpp_avsync_byte_count(int id);
+
 #endif

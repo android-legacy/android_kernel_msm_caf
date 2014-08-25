@@ -1861,13 +1861,6 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 		if (ev->status == 0x06 && hdev->ssp_mode > 0 &&
 							conn->ssp_mode > 0) {
 			struct hci_cp_auth_requested cp;
-			struct link_key *key;
-			key = hci_find_link_key(hdev, &conn->dst);
-			if (key && key->key_type == 0x05) {
-				BT_INFO("Previous key was authenticated, "
-					"updating the auth type for outgoing connection");
-				conn->auth_type = HCI_AT_DEDICATED_BONDING_MITM;
-			}
 			hci_remove_link_key(hdev, &conn->dst);
 			cp.handle = cpu_to_le16(conn->handle);
 			hci_send_cmd(conn->hdev, HCI_OP_AUTH_REQUESTED,
@@ -3281,37 +3274,6 @@ static inline void hci_le_conn_complete_evt(struct hci_dev *hdev, struct sk_buff
 
 	if (!white_list)
 		hci_proto_connect_cfm(conn, ev->status);
-
-unlock:
-	hci_dev_unlock(hdev);
-}
-
-static inline void hci_le_conn_update_complete_evt(struct hci_dev *hdev,
-							struct sk_buff *skb)
-{
-	struct hci_ev_le_conn_update_complete *ev = (void *) skb->data;
-	struct hci_conn *conn;
-
-	BT_DBG("%s status %d", hdev->name, ev->status);
-
-	hci_dev_lock(hdev);
-
-	conn = hci_conn_hash_lookup_handle(hdev,
-				__le16_to_cpu(ev->handle));
-	if (conn == NULL) {
-		BT_ERR("Unknown connection update");
-		goto unlock;
-	}
-
-	if (ev->status) {
-		BT_ERR("Connection update unsuccessful");
-		goto unlock;
-	}
-
-	mgmt_le_conn_params(hdev->id, &conn->dst,
-			__le16_to_cpu(ev->interval),
-			__le16_to_cpu(ev->latency),
-			__le16_to_cpu(ev->supervision_timeout));
 
 unlock:
 	hci_dev_unlock(hdev);

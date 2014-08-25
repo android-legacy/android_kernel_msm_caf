@@ -1020,8 +1020,7 @@ static void __init msm_timer_init(void)
 
 	if (cpu_is_msm7x01() || cpu_is_msm7x25() || cpu_is_msm7x27() ||
 	    cpu_is_msm7x25a() || cpu_is_msm7x27a() || cpu_is_msm7x25aa() ||
-	    cpu_is_msm7x27aa() || cpu_is_msm8625() || cpu_is_msm7x25ab() ||
-	    cpu_is_msm8625q()) {
+	    cpu_is_msm7x27aa() || cpu_is_msm8625() || cpu_is_msm7x25ab()) {
 		dgt->shift = MSM_DGT_SHIFT;
 		dgt->freq = 19200000 >> MSM_DGT_SHIFT;
 		dgt->clockevent.shift = 32 + MSM_DGT_SHIFT;
@@ -1031,7 +1030,7 @@ static void __init msm_timer_init(void)
 		gpt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT
 			   |  MSM_CLOCK_FLAGS_ODD_MATCH_WRITE
 			   |  MSM_CLOCK_FLAGS_DELAYED_WRITE_POST;
-		if (cpu_is_msm8625() || cpu_is_msm8625q()) {
+		if (cpu_is_msm8625()) {
 			dgt->irq = MSM8625_INT_DEBUG_TIMER_EXP;
 			gpt->irq = MSM8625_INT_GP_TIMER_EXP;
 			global_timer_offset =  MSM_TMR0_BASE - MSM_TMR_BASE;

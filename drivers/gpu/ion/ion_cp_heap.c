@@ -271,7 +271,7 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 out:
 	pr_debug("%s: protect count is %d\n", __func__,
 		atomic_read(&cp_heap->protect_cnt));
-	WARN_ON(atomic_read(&cp_heap->protect_cnt) < 0);
+	BUG_ON(atomic_read(&cp_heap->protect_cnt) < 0);
 	return ret_value;
 }
 
@@ -303,7 +303,7 @@ static void ion_cp_unprotect(struct ion_heap *heap, int version, void *data)
 	}
 	pr_debug("%s: protect count is %d\n", __func__,
 		atomic_read(&cp_heap->protect_cnt));
-	WARN_ON(atomic_read(&cp_heap->protect_cnt) < 0);
+	BUG_ON(atomic_read(&cp_heap->protect_cnt) < 0);
 }
 
 ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
@@ -561,7 +561,6 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
 	void *ret_value = NULL;
-	unsigned long start_phys = cp_heap->base;
 
 	mutex_lock(&cp_heap->lock);
 	if ((cp_heap->heap_protected == HEAP_NOT_PROTECTED) ||
@@ -617,7 +616,6 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 				++cp_heap->kmap_uncached_count;
 		}
 	}
-
 	mutex_unlock(&cp_heap->lock);
 	return ret_value;
 }

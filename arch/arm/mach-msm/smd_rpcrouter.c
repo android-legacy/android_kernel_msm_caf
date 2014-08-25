@@ -159,7 +159,6 @@ static atomic_t pm_mid = ATOMIC_INIT(1);
 static void do_read_data(struct work_struct *work);
 static void do_create_pdevs(struct work_struct *work);
 static void do_create_rpcrouter_pdev(struct work_struct *work);
-static int msm_rpcrouter_close(void);
 
 static DECLARE_WORK(work_create_pdevs, do_create_pdevs);
 static DECLARE_WORK(work_create_rpcrouter_pdev, do_create_rpcrouter_pdev);
@@ -2146,7 +2145,7 @@ int msm_rpc_get_curr_pkt_size(struct msm_rpc_endpoint *ept)
 	return rc;
 }
 
-static int msm_rpcrouter_close(void)
+int msm_rpcrouter_close(void)
 {
 	struct rpcrouter_xprt_info *xprt_info;
 	union rr_control_msg ctl;

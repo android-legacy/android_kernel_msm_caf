@@ -319,13 +319,13 @@ static void android_work(struct work_struct *data)
 	}
 }
 
-static int android_enable(struct android_dev *dev)
+static void android_enable(struct android_dev *dev)
 {
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct android_configuration *conf;
 
 	if (WARN_ON(!dev->disable_depth))
-		return err;
+		return;
 
 	if (--dev->disable_depth == 0) {
 
@@ -335,7 +335,6 @@ static int android_enable(struct android_dev *dev)
 
 		usb_gadget_connect(cdev->gadget);
 	}
-	return err;
 }
 
 static void android_disable(struct android_dev *dev)
@@ -739,18 +738,6 @@ static struct android_usb_function mbim_function = {
 	.cleanup	= mbim_function_cleanup,
 	.bind_config	= mbim_function_bind_config,
 	.init		= mbim_function_init,
-};
-
-/* PERIPHERAL AUDIO */
-static int audio_function_bind_config(struct android_usb_function *f,
-					  struct usb_configuration *c)
-{
-	return audio_bind_config(c);
-}
-
-static struct android_usb_function audio_function = {
-	.name		= "audio",
-	.bind_config	= audio_function_bind_config,
 };
 
 

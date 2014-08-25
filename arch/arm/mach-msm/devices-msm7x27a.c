@@ -588,7 +588,7 @@ void msm_clk_dump_debug_info(void)
 
 void __init msm_pm_register_irqs(void)
 {
-	if (cpu_is_msm8625() || cpu_is_msm8625q())
+	if (cpu_is_msm8625())
 		msm_pm_set_irq_extns(&msm8625_pm_irq_calls);
 	else
 		msm_pm_set_irq_extns(&msm7x27a_pm_irq_calls);
@@ -1034,22 +1034,7 @@ void __init msm8x25_kgsl_3d0_init(void)
 		/* 8x25 supports a higher GPU frequency */
 		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 320000000;
 		kgsl_3d0_pdata.pwrlevel[0].bus_freq = 200000000;
-	} else	if (cpu_is_msm8625q()) {
-			kgsl_3d0_pdata.num_levels = 4;
-
-			kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 400000000;
-			kgsl_3d0_pdata.pwrlevel[0].bus_freq = 300000000;
-
-			kgsl_3d0_pdata.pwrlevel[1].gpu_freq = 320000000;
-			kgsl_3d0_pdata.pwrlevel[1].bus_freq = 300000000;
-
-			kgsl_3d0_pdata.pwrlevel[2].gpu_freq = 245760000;
-			kgsl_3d0_pdata.pwrlevel[2].bus_freq = 160000000;
-
-			kgsl_3d0_pdata.pwrlevel[3].gpu_freq = 133000000;
-			kgsl_3d0_pdata.pwrlevel[3].bus_freq = 0;
 	}
-
 }
 
 static void __init msm_register_device(struct platform_device *pdev, void *data)
@@ -1492,7 +1477,7 @@ int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
 	if (controller < 1 || controller > 4)
 		return -EINVAL;
 
-	if (cpu_is_msm8625() || cpu_is_msm8625q())
+	if (cpu_is_msm8625())
 		pdev = msm8625_sdcc_devices[controller-1];
 	else
 		pdev = msm_sdcc_devices[controller-1];
@@ -1581,7 +1566,7 @@ int msm_add_host(unsigned int host, struct msm_usb_host_platform_data *plat)
 {
 	struct platform_device	*pdev;
 
-	if (cpu_is_msm8625() || cpu_is_msm8625q())
+	if (cpu_is_msm8625())
 		pdev = msm8625_host_devices[host];
 	else
 		pdev = msm_host_devices[host];
@@ -1684,12 +1669,12 @@ struct platform_device mipi_dsi_device;
 void __init msm_fb_register_device(char *name, void *data)
 {
 	if (!strncmp(name, "mdp", 3)) {
-		if (cpu_is_msm8625() || cpu_is_msm8625q())
+		if (cpu_is_msm8625())
 			msm_register_device(&msm8625_mdp_device, data);
 		else
 			msm_register_device(&msm_mdp_device, data);
 	} else if (!strncmp(name, "mipi_dsi", 8)) {
-		if (cpu_is_msm8625() || cpu_is_msm8625q()) {
+		if (cpu_is_msm8625()) {
 			msm_register_device(&msm8625_mipi_dsi_device, data);
 			mipi_dsi_device = msm8625_mipi_dsi_device;
 		} else {
@@ -1970,10 +1955,9 @@ enum {
 	MSM8625AB,
 };
 
-static int __init msm_gpio_config_gps(void)
+static int __init msm8625_cpu_id(void)
 {
-	unsigned int gps_gpio = 7;
-	int ret = 0;
+	int raw_id, cpu;
 
 	raw_id = socinfo_get_raw_id();
 	switch (raw_id) {
@@ -2003,24 +1987,7 @@ static int __init msm_gpio_config_gps(void)
 		pr_err("Invalid Raw ID\n");
 		return -ENODEV;
 	}
-
-	ret = gpio_request(gps_gpio, "gnss-gpio");
-	if (ret < 0) {
-		pr_err("failed to request gpio-%d\n", gps_gpio);
-		return ret;
-	}
-
-	ret = gpio_direction_input(gps_gpio);
-	if (ret < 0) {
-		pr_err("failed to change direction for gpio-%d\n", gps_gpio);
-		return ret;
-	}
-
-	ret = gpio_export(gps_gpio, true);
-	if (ret < 0)
-		pr_err("failed to export gpio for user\n");
-
-	return ret;
+	return cpu;
 }
 
 static int __init msm_acpuclock_init(bool flag)
@@ -2051,15 +2018,8 @@ int __init msm7x2x_misc_init(void)
 	msm_clock_init(&msm7x27a_clock_init_data);
 	if (cpu_is_msm7x27aa() || cpu_is_msm7x25ab())
 		platform_device_register(&msm7x27aa_device_acpuclk);
-	else if (cpu_is_msm8625q()) {
-		msm_acpuclock_init(1);
-		platform_device_register(&msm8625q_device_acpuclk);
-	} else if (cpu_is_msm8625()) {
-
-		if (machine_is_qrd_skud_prime()) {
-			msm_acpuclock_init(0);
-			platform_device_register(&msm8625q_device_acpuclk);
-		} else if (msm8625_cpu_id() == MSM8625)
+	else if (cpu_is_msm8625()) {
+		if (msm8625_cpu_id() == MSM8625)
 			platform_device_register(&msm7x27aa_device_acpuclk);
 		else if (msm8625_cpu_id() == MSM8625A)
 			platform_device_register(&msm8625_device_acpuclk);
@@ -2085,9 +2045,7 @@ static int __init msm7x27x_cache_init(void)
 	/* Way Size 010(0x2) 32KB */
 	aux_ctrl = (0x1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) | \
 		   (0x2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
-		   (0x1 << L2X0_AUX_CTRL_EVNT_MON_BUS_EN_SHIFT);
-
-	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
+		   (0x1 << L2X0_AUX_CTRL_EVNT_MON_BUS_EN_SHIFT); {
 		/* Way Size 011(0x3) 64KB */
 		aux_ctrl |= (0x3 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) | \
 			    (0x1 << L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT) | \
@@ -2103,7 +2061,7 @@ static int __init msm7x27x_cache_init(void)
 	}
 
 	l2x0_init(MSM_L2CC_BASE, aux_ctrl, L2X0_AUX_CTRL_MASK);
-	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
+	if (cpu_is_msm8625()) {
 		pctrl = readl_relaxed(MSM_L2CC_BASE + L2X0_PREFETCH_CTRL);
 		pr_info("Prfetch Ctrl: 0x%08x\n", pctrl);
 	}
@@ -2140,7 +2098,7 @@ void __init msm8625_map_io(void)
 
 static int msm7627a_init_gpio(void)
 {
-	if (cpu_is_msm8625() || cpu_is_msm8625q())
+	if (cpu_is_msm8625())
 		platform_device_register(&msm8625_device_gpio);
 	else
 		platform_device_register(&msm_device_gpio);

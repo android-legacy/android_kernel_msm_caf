@@ -728,30 +728,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	return 0;
 }
 
-void
-adreno_ringbuffer_issuecmds_intr(struct kgsl_device *device,
-						struct kgsl_context *k_ctxt,
-						unsigned int *cmds,
-						int sizedwords)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-	struct adreno_context *a_ctxt = NULL;
-
-	if (!k_ctxt)
-		return;
-
-	a_ctxt = k_ctxt->devctxt;
-
-	if (k_ctxt->id == KGSL_CONTEXT_INVALID ||
-		a_ctxt == NULL ||
-		device->state & KGSL_STATE_HUNG)
-		return;
-
-	adreno_ringbuffer_addcmds(rb, a_ctxt, KGSL_CMD_FLAGS_DUMMY_INTR_CMD,
-			cmds, sizedwords);
-}
-
 unsigned int
 adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 						struct adreno_context *drawctxt,
@@ -1094,12 +1070,6 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	 */
 	adreno_idle(device);
 #endif
-	/* If context hung and recovered then return error so that the
-	 * application may handle it */
-	if (drawctxt->flags & CTXT_FLAGS_GPU_HANG_RECOVERED)
-		return -EDEADLK;
-	else
-		return 0;
 
 	/*
 	 * If context hung and recovered then return error so that the

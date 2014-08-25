@@ -1080,21 +1080,6 @@ int msm_adsp_generate_event(void *data,
 	return 0;
 }
 
-int msm_adsp_dump(struct msm_adsp_module *module)
-{
-	int rc = 0;
-	if (!module) {
-		MM_INFO("Invalid module. Dumps are not collected\n");
-		return -EINVAL;
-	}
-	MM_INFO("starting DSP DUMP\n");
-	rc = rpc_adsp_rtos_app_to_modem(RPC_ADSP_RTOS_CMD_CORE_DUMP,
-			module->id, module);
-	MM_INFO("DSP DUMP done rc =%d\n", rc);
-	return rc;
-}
-EXPORT_SYMBOL(msm_adsp_dump);
-
 int msm_adsp_enable(struct msm_adsp_module *module)
 {
 	int rc = 0;
@@ -1138,7 +1123,6 @@ int msm_adsp_enable(struct msm_adsp_module *module)
 			rc = 0;
 		} else {
 			MM_ERR("module '%s' enable timed out\n", module->name);
-			msm_adsp_dump(module);
 			rc = -ETIMEDOUT;
 		}
 		if (module->open_count++ == 0 && module->clk)
@@ -1501,9 +1485,7 @@ static int __init adsp_init(void)
 	if (msm_adsp_probe_work_queue == NULL)
 		return -ENOMEM;
 	msm_adsp_driver.driver.name = msm_adsp_driver_name;
-	preempt_disable();
 	rc = platform_driver_register(&msm_adsp_driver);
-	preempt_enable();
 	MM_INFO("%s -- %d\n", msm_adsp_driver_name, rc);
 	return rc;
 }
