@@ -295,6 +295,13 @@ config BATTERY_MSM
 	help
 	  Say Y to enable support for the battery in Qualcomm MSM.
 
+config BATTERY_MSM_JENA
+	tristate "MSM legacy battery for Samsung Jena"
+	depends on ARCH_MSM
+	default m
+	help
+	  Say Y to enable support for the battery in Qualcomm MSM.
+
 config BATTERY_MSM8X60
 	tristate "MSM8X60 battery"
 	select PMIC8XXX_BATTALARM
@@ -415,6 +422,14 @@ config PM8921_BMS
 	help
 	  Say Y here to enable support for pm8921 chip bms subdevice
 
+config BATTERY_BCL
+	tristate "Battery Current Limit driver"
+	help
+	  Say Y here to enable support for battery current limit
+	  device. The BCL driver will poll BMS if
+	  thermal daemon enables BCL.
+	  It will notify thermal daemon if IBat crosses Imax threshold.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
@@ -434,4 +449,11 @@ config AB8500_BATTERY_THERM_ON_BATCTRL
 	help
 	  Say Y to enable battery temperature measurements using
 	  thermistor connected on BATCTRL ADC.
+
+config BQ27425_FUEL_GAUGE
+	tristate "TI BQ27425 Fuel Gauge"
+	depends on I2C
+	help
+	  BQ27425 is fuel-gauge systems for lithium-ion (Li+) batteries
+	  in handheld and portable equipment.
 endif # POWER_SUPPLY

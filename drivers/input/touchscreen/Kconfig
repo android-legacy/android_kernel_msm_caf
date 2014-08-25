@@ -490,6 +490,12 @@ config SYNA_MULTI_TOUCH
 	depends on TOUCHSCREEN_SYNAPTICS_RMI4_I2C
 	default y
 
+config TOUCHSCREEN_MELFAS
+	tristate "Melfas i2c touchscreen"
+	depends on I2C
+	help
+		This enable support for Melfas over I2C based touchscreen.
+
 config TOUCHSCREEN_TOUCHRIGHT
 	tristate "Touchright serial touchscreen"
 	select SERIO
@@ -945,6 +951,26 @@ config TOUCHSCREEN_FT5X06
 
          To compile this driver as a module, choose M here: the
          module will be called ft5x06_ts.
+
+config TOUCHSCREEN_LGE_COMMON
+	bool "LGE Touch common driver"
+	depends on I2C
+	help
+	  Enable LGE Touch Common Driver which runs with lower driver.
+
+config TOUCHSCREEN_LGE_SYNAPTICS
+	bool "Synaptics RMI4 driver for LG Touch Common Driver"
+	depends on I2C
+	select TOUCHSCREEN_LGE_COMMON
+	help
+	  Enables Synaptics RMI4 protocol I2C Touch Screens
+
+config TOUCH_REG_MAP_TM2000
+	tristate "synaptics TM2000 touchscreen"
+	depends on TOUCHSCREEN_LGE_SYNAPTICS
+	default y
+	help
+	  Synaptics Register map TM2000.
 
 config TOUCHSCREEN_SYNAPTICS_I2C_RMI4
 	tristate "Synaptics DSX I2C touchscreen"

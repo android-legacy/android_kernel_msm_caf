@@ -2,7 +2,7 @@
  * Driver for HighSpeed USB Client Controller in MSM7K
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Brian Swetland <swetland@google.com>
  *
@@ -296,15 +296,13 @@ static inline enum chg_type usb_get_chg_type(struct usb_info *ui)
 {
 	if ((readl_relaxed(USB_PORTSC) & PORTSC_LS) == PORTSC_LS) {
 		return USB_CHG_TYPE__WALLCHARGER;
-	} else if (ui->pdata->prop_chg) {
+	else {
 		if (ui->gadget.speed == USB_SPEED_LOW ||
 			ui->gadget.speed == USB_SPEED_FULL ||
 			ui->gadget.speed == USB_SPEED_HIGH)
 			return USB_CHG_TYPE__SDP;
 		else
 			return USB_CHG_TYPE__INVALID;
-	} else {
-		return USB_CHG_TYPE__SDP;
 	}
 }
 
@@ -334,7 +332,7 @@ static int usb_get_max_power(struct usb_info *ui)
 
 	if (temp == USB_CHG_TYPE__WALLCHARGER && !ui->proprietary_chg)
 		return USB_WALLCHARGER_CHG_CURRENT;
-	else if (ui->pdata->prop_chg)
+	else
 		return USB_PROPRIETARY_CHG_CURRENT;
 
 	if (suspended || !configured)

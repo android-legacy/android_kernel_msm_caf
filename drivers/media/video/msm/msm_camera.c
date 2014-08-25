@@ -34,7 +34,8 @@
 #include <mach/camera.h>
 #include <linux/syscalls.h>
 #include <linux/hrtimer.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
+
 #include <mach/cpuidle.h>
 DEFINE_MUTEX(ctrl_cmd_lock);
 
@@ -1101,6 +1102,7 @@ static int msm_divert_frame(struct msm_sync *sync,
 		return rc;
 	}
 
+        memset(&(buf.fmain), 0, sizeof(struct msm_frame));
 	buf.fmain.buffer = (unsigned long)pinfo.vaddr;
 	buf.fmain.planar0_off = pinfo.planar0_off;
 	buf.fmain.planar1_off = pinfo.planar1_off;
@@ -1235,7 +1237,7 @@ static int msm_get_stats(struct msm_sync *sync, void __user *arg)
 	}
 
 	rc = 0;
-
+        memset(&stats, 0, sizeof(stats));
 	qcmd = msm_dequeue(&sync->event_q, list_config);
 	if (!qcmd) {
 		/* Should be associated with wait_event

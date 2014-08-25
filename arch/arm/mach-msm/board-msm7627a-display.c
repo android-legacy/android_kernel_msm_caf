@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -839,8 +839,6 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = 97,
 	.mdp_rev = MDP_REV_303,
 	.cont_splash_enabled = 0x1,
-	.splash_screen_addr = 0x00,
-	.splash_screen_size = 0x00,
 };
 
 static char lcdc_splash_is_enabled()
@@ -1360,149 +1358,6 @@ static int mipi_dsi_panel_qrd3_power(int on)
 	return rc;
 }
 
-static int skud_dsi_gpio_initialized;
-static int mipi_dsi_panel_skud_power(int on)
-{
-	int rc = 0;
-
-	if (!skud_dsi_gpio_initialized) {
-		pmapp_disp_backlight_init();
-
-		skud_dsi_gpio_initialized = 1;
-
-		if (mdp_pdata.cont_splash_enabled) {
-			/*Configure LCD Bridge reset*/
-			rc = gpio_tlmm_config(skud_mipi_dsi_gpio[0],
-			     GPIO_CFG_ENABLE);
-			if (rc < 0) {
-				pr_err("Failed to enable LCD Bridge reset enable\n");
-				return rc;
-			}
-
-			rc = gpio_direction_output(GPIO_SKUD_LCD_BRDG_RESET_N,
-									1);
-
-			if (rc < 0) {
-				pr_err("Failed GPIO bridge Reset\n");
-				gpio_free(GPIO_SKUD_LCD_BRDG_RESET_N);
-				return rc;
-			}
-			return 0;
-		}
-	}
-
-	if (on) {
-		/*Configure LCD Bridge reset*/
-		rc = gpio_tlmm_config(skud_mipi_dsi_gpio[0], GPIO_CFG_ENABLE);
-		if (rc < 0) {
-			pr_err("Failed to enable LCD Bridge reset enable\n");
-			return rc;
-		}
-
-		rc = gpio_direction_output(GPIO_SKUD_LCD_BRDG_RESET_N, 1);
-
-		if (rc < 0) {
-			pr_err("Failed GPIO bridge Reset\n");
-			gpio_free(GPIO_SKUD_LCD_BRDG_RESET_N);
-			return rc;
-		}
-
-		/*Toggle Bridge Reset GPIO*/
-		msleep(20);
-		gpio_set_value_cansleep(GPIO_SKUD_LCD_BRDG_RESET_N, 0);
-		msleep(20);
-		gpio_set_value_cansleep(GPIO_SKUD_LCD_BRDG_RESET_N, 1);
-		msleep(20);
-
-	} else {
-		gpio_tlmm_config(GPIO_CFG(GPIO_SKUD_LCD_BRDG_RESET_N, 0,
-			GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-			GPIO_CFG_DISABLE);
-	}
-
-	return rc;
-}
-
-static int evbd_dsi_gpio_initialized;
-
-static int mipi_dsi_panel_evbd_power(int on)
-{
-	int rc = 0;
-
-	if (!evbd_dsi_gpio_initialized) {
-		pmapp_disp_backlight_init();
-
-		evbd_dsi_gpio_initialized = 1;
-
-		if (mdp_pdata.cont_splash_enabled) {
-			/*Configure LCD Bridge reset*/
-			rc = gpio_tlmm_config(skud_mipi_dsi_gpio[0],
-			     GPIO_CFG_ENABLE);
-			if (rc < 0) {
-				pr_err("Failed to enable LCD Bridge reset enable\n");
-				return rc;
-			}
-
-			rc = gpio_direction_output(GPIO_SKUD_LCD_BRDG_RESET_N,
-			     1);
-
-			if (rc < 0) {
-				pr_err("Failed GPIO bridge Reset\n");
-				gpio_free(GPIO_SKUD_LCD_BRDG_RESET_N);
-				return rc;
-			}
-			return 0;
-		}
-	}
-
-	if (on) {
-		/*Enable EXT_2.85 and 1.8 regulators*/
-		rc = regulator_enable(gpio_reg_2p85v);
-		if (rc < 0)
-			pr_err("%s: reg enable failed\n", __func__);
-		rc = regulator_enable(gpio_reg_1p8v);
-		if (rc < 0)
-			pr_err("%s: reg enable failed\n", __func__);
-
-		/*Configure LCD Bridge reset*/
-		rc = gpio_tlmm_config(skud_mipi_dsi_gpio[0], GPIO_CFG_ENABLE);
-		if (rc < 0) {
-			pr_err("Failed to enable LCD Bridge reset enable\n");
-			return rc;
-		}
-
-		rc = gpio_direction_output(GPIO_SKUD_LCD_BRDG_RESET_N, 1);
-
-		if (rc < 0) {
-			pr_err("Failed GPIO bridge Reset\n");
-			gpio_free(GPIO_SKUD_LCD_BRDG_RESET_N);
-			return rc;
-		}
-
-		/*Toggle Bridge Reset GPIO*/
-		msleep(20);
-		gpio_set_value_cansleep(GPIO_SKUD_LCD_BRDG_RESET_N, 0);
-		msleep(20);
-		gpio_set_value_cansleep(GPIO_SKUD_LCD_BRDG_RESET_N, 1);
-		msleep(20);
-
-	} else {
-		gpio_tlmm_config(GPIO_CFG(GPIO_SKUD_LCD_BRDG_RESET_N, 0,
-			GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-			GPIO_CFG_DISABLE);
-
-		rc = regulator_disable(gpio_reg_2p85v);
-		if (rc < 0)
-			pr_err("%s: reg disable failed\n", __func__);
-		rc = regulator_disable(gpio_reg_1p8v);
-		if (rc < 0)
-			pr_err("%s: reg disable failed\n", __func__);
-
-	}
-
-	return rc;
-}
-
 static char mipi_dsi_splash_is_enabled(void);
 static int mipi_dsi_panel_power(int on)
 {
@@ -1530,8 +1385,12 @@ static struct mipi_dsi_platform_data mipi_dsi_pdata = {
 	.dsi_client_reset       = msm_fb_dsi_client_reset,
 	.get_lane_config	= msm_fb_get_lane_config,
 	.splash_is_enabled	= mipi_dsi_splash_is_enabled,
-	.dlane_swap		= 0x1,
 };
+
+static char mipi_dsi_splash_is_enabled(void)
+{
+	return mdp_pdata.cont_splash_enabled;
+}
 
 static char mipi_dsi_splash_is_enabled(void)
 {
@@ -1567,14 +1426,7 @@ void msm7x27a_set_display_params(char *prim_panel)
 			strnlen("mipi_video_nt35510_wvga",
 				PANEL_NAME_MAX_LEN)))
 			disable_splash = 1;
-		else if (!(machine_is_msm7627a_evb() || machine_is_msm8625_evb()
-					|| machine_is_msm8625_evt()))
-			disable_splash = 1;
-
 	}
-
-	if (machine_is_msm8625q_evbd() || machine_is_msm8625q_skud())
-		mipi_dsi_pdata.dlane_swap = 0x0;
 }
 
 void __init msm_fb_add_devices(void)
@@ -1591,19 +1443,14 @@ void __init msm_fb_add_devices(void)
 		if (disable_splash)
 			mdp_pdata.cont_splash_enabled = 0x0;
 
+
 		platform_add_devices(evb_fb_devices,
 				ARRAY_SIZE(evb_fb_devices));
 	} else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()) {
 		sku3_lcdc_lcd_camera_power_init();
-		mdp_pdata.cont_splash_enabled = 0x0;
+		mdp_pdata.cont_splash_enabled = 0x1;
 		platform_add_devices(qrd3_fb_devices,
 						ARRAY_SIZE(qrd3_fb_devices));
-	} else if (machine_is_qrd_skud_prime() || machine_is_msm8625q_evbd()
-						|| machine_is_msm8625q_skud()) {
-		if (disable_splash)
-			mdp_pdata.cont_splash_enabled = 0x0;
-		platform_add_devices(skud_fb_devices,
-				ARRAY_SIZE(skud_fb_devices));
 	} else {
 		mdp_pdata.cont_splash_enabled = 0x0;
 		platform_add_devices(msm_fb_devices,
@@ -1619,8 +1466,7 @@ void __init msm_fb_add_devices(void)
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
 #endif
 	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
-		|| machine_is_msm8625_evt() || machine_is_msm8625q_evbd()) {
-
+					|| machine_is_msm8625_evt()) {
 		gpio_reg_2p85v = regulator_get(&mipi_dsi_device.dev,
 								"lcd_vdd");
 		if (IS_ERR(gpio_reg_2p85v))

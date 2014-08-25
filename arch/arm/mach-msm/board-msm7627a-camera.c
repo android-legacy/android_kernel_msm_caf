@@ -466,6 +466,12 @@ static struct msm_camera_sensor_flash_src msm_flash_src_ov8825 = {
 	._fsrc.ext_driver_src.led_flash_en = 32,
 };
 
+static struct msm_camera_sensor_flash_src msm_flash_src_ov8825 = {
+	.flash_sr_type = MSM_CAMERA_FLASH_SRC_LED1,
+	._fsrc.ext_driver_src.led_en = 13,
+	._fsrc.ext_driver_src.led_flash_en = 32,
+};
+
 static struct msm_camera_sensor_flash_data flash_ov8825 = {
 	.flash_type     = MSM_CAMERA_FLASH_LED,
 	.flash_src      = &msm_flash_src_ov8825,

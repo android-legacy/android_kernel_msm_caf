@@ -14,7 +14,6 @@ obj-$(CONFIG_DEBUG_FS) += mdp_debugfs.o
 
 ifeq ($(CONFIG_FB_MSM_MDP40),y)
 obj-y += mdp4_util.o
-obj-y += mdp4_hsic.o
 else
 obj-y += mdp_hw_init.o
 obj-y += mdp_ppp.o
@@ -150,7 +149,8 @@ obj-$(CONFIG_FB_MSM_MIPI_NT35510_VIDEO_WVGA_PT) += mipi_NT35510_video_wvga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_HX8389B_VIDEO_QHD_PT) += mipi_hx8389b_video_qhd_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_NT35516_CMD_QHD_PT) += mipi_truly_tft540960_1_e_cmd_qhd_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_NT35516_VIDEO_QHD_PT) += mipi_truly_tft540960_1_e_video_qhd_pt.o
-obj-$(CONFIG_FB_MSM_MIPI_NT35590_CMD_720P_PT) += mipi_NT35590_cmd_720p_pt.o mipi_NT35590_video_720p_pt.o
+obj-$(CONFIG_FB_MSM_MIPI_NT35590_CMD_720P_PT) += mipi_NT35590_cmd_720p_pt.o
+obj-$(CONFIG_FB_MSM_MIPI_NT35590_VIDEO_720P_PT) += mipi_NT35590_video_720p_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_SIMULATOR_VIDEO) += mipi_simulator_video.o
 obj-$(CONFIG_FB_MSM_MIPI_CHIMEI_WXGA) += mipi_chimei_wxga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_CHIMEI_WUXGA) += mipi_chimei_wuxga.o
@@ -177,6 +177,11 @@ obj-$(CONFIG_FB_MSM_LVDS_FRC_FHD) += lvds_frc_fhd.o
 obj-$(CONFIG_FB_MSM_HDMI_MSM_PANEL) += hdmi_msm.o
 obj-$(CONFIG_FB_MSM_EXT_INTERFACE_COMMON) += external_common.o
 obj-$(CONFIG_FB_MSM_LCDC_TRULY_HVGA_IPS3P2335) += lcdc_truly_ips3p2335.o
+
+##################################
+# Lcd driver for Samsung Project #
+##################################
+obj-$(CONFIG_FB_MSM_LCDC_JENA_HVGA) += lcdc_jena.o lcdc_backlight_ic.o
 
 obj-$(CONFIG_FB_MSM_TVOUT) += tvout_msm.o
 

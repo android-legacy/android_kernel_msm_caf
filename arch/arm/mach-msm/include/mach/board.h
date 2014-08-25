@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/include/mach/board.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -64,17 +64,19 @@ struct msm_camera_device_platform_data {
 	uint8_t is_vpe;
 	struct msm_bus_scale_pdata *cam_bus_scale_table;
 };
+
 enum msm_camera_csi_data_format {
-	CSI_8BIT,
-	CSI_10BIT,
-	CSI_12BIT,
+        CSI_8BIT,
+        CSI_10BIT,
+        CSI_12BIT,
 };
+
 struct msm_camera_csi_params {
-	enum msm_camera_csi_data_format data_format;
-	uint8_t lane_cnt;
-	uint8_t lane_assign;
-	uint8_t settle_cnt;
-	uint8_t dpcm_scheme;
+        enum msm_camera_csi_data_format data_format;
+        uint8_t lane_cnt;
+        uint8_t lane_assign;
+        uint8_t settle_cnt;
+        uint8_t dpcm_scheme;
 };
 
 #ifdef CONFIG_SENSORS_MT9T013
@@ -168,30 +170,18 @@ struct msm_camera_sensor_strobe_flash_data {
 	int state;
 };
 
+#ifndef CONFIG_MSM_CAMERA_LEGACY
 enum msm_camera_type {
 	BACK_CAMERA_2D,
 	FRONT_CAMERA_2D,
 	BACK_CAMERA_3D,
 	BACK_CAMERA_INT_3D,
 };
+#endif
 
 enum msm_sensor_type {
 	BAYER_SENSOR,
 	YUV_SENSOR,
-};
-
-enum camera_vreg_type {
-	REG_LDO,
-	REG_VS,
-	REG_GPIO,
-};
-
-struct camera_vreg_t {
-	char *reg_name;
-	enum camera_vreg_type type;
-	int min_voltage;
-	int max_voltage;
-	int op_mode;
 };
 
 struct msm_gpio_set_tbl {
@@ -201,8 +191,9 @@ struct msm_gpio_set_tbl {
 };
 
 struct msm_camera_csi_lane_params {
-	uint8_t csi_lane_assign;
-	uint8_t csi_lane_mask;
+	uint16_t csi_lane_assign;
+	uint16_t csi_lane_mask;
+	uint8_t csi_phy_sel;
 };
 
 struct msm_camera_gpio_conf {
@@ -231,6 +222,13 @@ struct msm_camera_i2c_conf {
 	uint8_t use_i2c_mux;
 	struct platform_device *mux_dev;
 	enum msm_camera_i2c_mux_mode i2c_mux_mode;
+};
+
+enum msm_camera_vreg_name_t {
+	CAM_VDIG,
+	CAM_VIO,
+	CAM_VANA,
+	CAM_VAF,
 };
 
 struct msm_camera_sensor_platform_info {
@@ -269,6 +267,9 @@ struct msm_actuator_info {
 struct msm_eeprom_info {
 	struct i2c_board_info const *board_info;
 	int bus_id;
+	int eeprom_reg_addr;
+	int eeprom_read_length;
+	int eeprom_i2c_slave_addr;
 };
 
 struct msm_camera_sensor_info {
@@ -286,10 +287,11 @@ struct msm_camera_sensor_info {
 	uint8_t num_resources;
 	struct msm_camera_sensor_flash_data *flash_data;
 	int csi_if;
-	struct msm_camera_csi_params csi_params;
 	struct msm_camera_sensor_strobe_flash_data *strobe_flash_data;
 	char *eeprom_data;
+#ifndef CONFIG_MSM_CAMERA_LEGACY
 	enum msm_camera_type camera_type;
+#endif
 	enum msm_sensor_type sensor_type;
 	struct msm_actuator_info *actuator_info;
 	int pmic_gpio_enable;
@@ -405,6 +407,9 @@ struct msm_panel_common_pdata {
 	int (*vga_switch)(int select_vga);
 	int *gpio_num;
 	u32 mdp_max_clk;
+	u32 mdp_max_bw;
+	u32 mdp_bw_ab_factor;
+	u32 mdp_bw_ib_factor;
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *mdp_bus_scale_table;
 #endif
@@ -475,6 +480,7 @@ struct mipi_dsi_panel_platform_data {
 	struct mipi_dsi_phy_ctrl *phy_ctrl_settings;
 	void (*dsi_pwm_cfg)(void);
 	char enable_wled_bl_ctrl;
+	void (*gpio_set_backlight)(int bl_level);
 };
 
 struct lvds_panel_platform_data {
@@ -506,6 +512,7 @@ struct msm_hdmi_platform_data {
 	int (*gpio_config)(int on);
 	int (*init_irq)(void);
 	bool (*check_hdcp_hw_support)(void);
+	bool (*source)(void);
 	bool is_mhl_enabled;
 };
 
@@ -523,6 +530,7 @@ struct msm_mhl_platform_data {
 	uint32_t gpio_mhl_power;
 	/* GPIO no. for hdmi-mhl mux */
 	uint32_t gpio_hdmi_mhl_mux;
+	bool mhl_enabled;
 };
 
 struct msm_i2c_platform_data {
@@ -536,6 +544,7 @@ struct msm_i2c_platform_data {
 	int aux_dat;
 	int src_clk_rate;
 	int use_gsbi_shared_mode;
+	int keep_ahb_clk_on;
 	void (*msm_i2c_config_gpio)(int iface, int config_type);
 };
 
@@ -551,6 +560,7 @@ struct msm_vidc_platform_data {
 	int disable_fullhd;
 	u32 cp_enabled;
 	u32 secure_wb_heap;
+	u32 enable_sec_metadata;
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *vidc_bus_client_pdata;
 #endif
@@ -596,6 +606,9 @@ void vic_handle_irq(struct pt_regs *regs);
 void msm_8974_reserve(void);
 void msm_8974_very_early(void);
 void msm_8974_init_gpiomux(void);
+void msm9625_init_gpiomux(void);
+void msm_map_mpq8092_io(void);
+void mpq8092_init_gpiomux(void);
 
 /* Dump debug info (states, rate, etc) of clocks */
 #if defined(CONFIG_ARCH_MSM7X27)
@@ -607,6 +620,7 @@ static inline void msm_clk_dump_debug_info(void) {}
 struct mmc_platform_data;
 int msm_add_sdcc(unsigned int controller,
 		struct mmc_platform_data *plat);
+int msm_add_uio(void);
 
 void msm_pm_register_irqs(void);
 struct msm_usb_host_platform_data;

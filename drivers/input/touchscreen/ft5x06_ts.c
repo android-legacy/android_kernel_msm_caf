@@ -3,7 +3,8 @@
  * FocalTech ft5x06 TouchScreen driver.
  *
  * Copyright (c) 2010  Focal tech Ltd.
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.

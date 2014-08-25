@@ -1,14 +1,14 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *  *
+ *   * This program is free software; you can redistribute it and/or modify
+ *    * it under the terms of the GNU General Public License version 2 and
+ *     * only version 2 as published by the Free Software Foundation.
+ *      *
+ *       * This program is distributed in the hope that it will be useful,
+ *        * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *         * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *          * GNU General Public License for more details.
+ *           */
 
 #include <linux/init.h>
 #include <linux/errno.h>
@@ -33,9 +33,9 @@
 #define MSM_CORE_STATUS_MSK	0x02800000
 
 /*
- * control for which core is the next to come out of the secondary
- * boot "holding pen"
- */
+ *  * control for which core is the next to come out of the secondary
+ *   * boot "holding pen"
+ *    */
 volatile int pen_release = -1;
 
 static DEFINE_PER_CPU(bool, cold_boot_done);
@@ -53,10 +53,10 @@ static uint32_t *msm8625_boot_vector;
 static struct per_cpu_data cpu_data[CONFIG_NR_CPUS];
 
 /*
- * Write pen_release in a way that is guaranteed to be visible to all
- * observers, irrespective of whether they're taking part in coherency
- * or not.  This is necessary for the hotplug code to work reliably.
- */
+ *  * Write pen_release in a way that is guaranteed to be visible to all
+ *   * observers, irrespective of whether they're taking part in coherency
+ *    * or not.  This is necessary for the hotplug code to work reliably.
+ *     */
 static void __cpuinit write_pen_release(int val)
 {
 	pen_release = val;
@@ -73,11 +73,11 @@ static void __iomem *scu_base_addr(void)
 static DEFINE_SPINLOCK(boot_lock);
 
 /*
- * MP_CORE_IPC will be used to generate interrupt and can be used by either
- * of core.
- * To bring secondary cores out of GDFS we need to raise the SPI using the
- * MP_CORE_IPC.
- */
+ *  * MP_CORE_IPC will be used to generate interrupt and can be used by either
+ *   * of core.
+ *    * To bring secondary cores out of GDFS we need to raise the SPI using the
+ *     * MP_CORE_IPC.
+ *      */
 static void raise_clear_spi(unsigned int cpu, bool set)
 {
 	int value;
@@ -123,16 +123,16 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	WARN_ON(msm_platform_secondary_init(cpu));
 
 	/*
-	 * if any interrupts are already enabled for the primary
-	 * core (e.g. timer irq), then they will not have been enabled
-	 * for us: do so
-	 */
+ * 	 * if any interrupts are already enabled for the primary
+ * 	 	 * core (e.g. timer irq), then they will not have been enabled
+ * 	 	 	 * for us: do so
+ * 	 	 	 	 */
 	gic_secondary_init(0);
 
 	/*
-	 * let the primary processor know we're out of the
-	 * pen, then head off into the C entry point
-	 */
+ * 	 * let the primary processor know we're out of the
+ * 	 	 * pen, then head off into the C entry point
+ * 	 	 	 */
 	write_pen_release(-1);
 
 	/* clear the IPC pending SPI */
@@ -146,8 +146,8 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	gic_set_irq_secure(GIC_SECURE_SOFT_IRQ);
 #endif
 	/*
-	 * Synchronise with the boot thread.
-	 */
+ * 	 * Synchronise with the boot thread.
+ * 	 	 */
 	spin_lock(&boot_lock);
 	spin_unlock(&boot_lock);
 }
@@ -159,10 +159,10 @@ static int  __cpuinit msm8625_release_secondary(unsigned int cpu)
 	unsigned long timeout;
 
 	/*
-	 * loop to ensure that the GHS_STATUS_CORE1 bit in the
-	 * MPA5_STATUS_REG(0x3c) is set. The timeout for the while
-	 * loop can be set as 20us as of now
-	 */
+ * 	 * loop to ensure that the GHS_STATUS_CORE1 bit in the
+ * 	 	 * MPA5_STATUS_REG(0x3c) is set. The timeout for the while
+ * 	 	 	 * loop can be set as 20us as of now
+ * 	 	 	 	 */
 	timeout = jiffies + usecs_to_jiffies(20);
 	while (time_before(jiffies, timeout)) {
 		value = __raw_readl(MSM_CFG_CTL_BASE + cpu_data[cpu].offset);
@@ -211,28 +211,28 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	}
 
 	/*
-	 * Set synchronisation state between this boot processor
-	 * and the secondary one
-	 */
+ * 	 * Set synchronisation state between this boot processor
+ * 	 	 * and the secondary one
+ * 	 	 	 */
 	spin_lock(&boot_lock);
 
 	/*
-	 * This is really belt and braces; we hold unintended secondary
-	 * CPUs in the holding pen until we're ready for them.  However,
-	 * since we haven't sent them a soft interrupt, they shouldn't
-	 * be there.
-	 */
+ * 	 * This is really belt and braces; we hold unintended secondary
+ * 	 	 * CPUs in the holding pen until we're ready for them.  However,
+ * 	 	 	 * since we haven't sent them a soft interrupt, they shouldn't
+ * 	 	 	 	 * be there.
+ * 	 	 	 	 	 */
 	write_pen_release(cpu);
 
 	/*
-	 * Send the secondary CPU a soft interrupt, thereby causing
-	 * the boot monitor to read the system wide flags register,
-	 * and branch to the address found there.
-	 *
-	 * power_collapsed is the flag which will be updated for Powercollapse.
-	 * Once we are out of PC, as secondary cores will be in the state of
-	 * GDFS which needs to be brought out by raising an SPI.
-	 */
+ * 	 * Send the secondary CPU a soft interrupt, thereby causing
+ * 	 	 * the boot monitor to read the system wide flags register,
+ * 	 	 	 * and branch to the address found there.
+ * 	 	 	 	 *
+ * 	 	 	 	 	 * power_collapsed is the flag which will be updated for Powercollapse.
+ * 	 	 	 	 	 	 * Once we are out of PC, as secondary cores will be in the state of
+ * 	 	 	 	 	 	 	 * GDFS which needs to be brought out by raising an SPI.
+ * 	 	 	 	 	 	 	 	 */
 
 	if (per_cpu(power_collapsed, cpu)) {
 		gic_configure_and_raise(cpu_data[cpu].ipc_irq, cpu);
@@ -251,18 +251,18 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	}
 
 	/*
-	 * now the secondary core is starting up let it run its
-	 * calibrations, then wait for it to finish
-	 */
+ * 	 * now the secondary core is starting up let it run its
+ * 	 	 * calibrations, then wait for it to finish
+ * 	 	 	 */
 	spin_unlock(&boot_lock);
 
 	return 0;
 }
 
 /*
- * Initialise the CPU possible map early - this describes the CPUs
- * which may be present or become present in the system.
- */
+ *  * Initialise the CPU possible map early - this describes the CPUs
+ *   * which may be present or become present in the system.
+ *    */
 void __init smp_init_cpus(void)
 {
 	void __iomem *scu_base = scu_base_addr();
@@ -298,9 +298,9 @@ static void enable_boot_remapper(unsigned long bit, unsigned int off)
 static void remapper_address(unsigned long phys, unsigned int off)
 {
 	/*
-	 * Write the address of secondary startup into the
-	 * boot remapper register. The secondary CPU branches to this address.
-	 */
+ * 	 * Write the address of secondary startup into the
+ * 	 	 * boot remapper register. The secondary CPU branches to this address.
+ * 	 	 	 */
 	__raw_writel(phys, (MSM_CFG_CTL_BASE + off));
 	mb();
 }
@@ -322,9 +322,9 @@ void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 	void __iomem *cpu_ptr;
 
 	/*
-	 * Initialise the present map, which describes the set of CPUs
-	 * actually populated at the present time.
-	 */
+ * 	 * Initialise the present map, which describes the set of CPUs
+ * 	 	 * actually populated at the present time.
+ * 	 	 	 */
 	for (i = 0; i < max_cpus; i++)
 		set_cpu_present(i, true);
 

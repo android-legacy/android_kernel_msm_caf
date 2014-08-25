@@ -3,7 +3,7 @@
  * MSM Power Management Routines
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2012 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,6 +26,7 @@
 #include <linux/io.h>
 #include <linux/tick.h>
 #include <linux/memory.h>
+#include <linux/i2c-gpio.h>
 #include <mach/msm_iomap.h>
 #include <mach/system.h>
 #ifdef CONFIG_CPU_V7
@@ -517,8 +518,17 @@ static void msm_pm_configure_top_csr(void)
 	unsigned int cpu;
 	int i;
 
-	/* Initialize all the SPM registers */
-	msm_spm_reinit();
+	base_ptr = core_reset_base();
+	if (!base_ptr)
+		return;
+
+	/* bring the core1 out of reset */
+	__raw_writel(0x3, base_ptr);
+	mb();
+	/*
+	 * override DBGNOPOWERDN and program the GDFS
+	 * count val
+	 */
 
 	*(uint32_t *)(virt_start_ptr + 0x30) = 0x12;
 
@@ -888,33 +898,6 @@ static int msm_pm_power_collapse
 	int val;
 	int modem_early_exit = 0;
 
-
-	/* clear C0 jump location */
-	*(uint32_t *)(virt_start_ptr + 0x40) = 0xBEEFDEAD;
-
-	*(uint32_t *)(virt_start_ptr + 0x30) = 0x1;
-	/* This location tell us we are doing a PC */
-	*(uint32_t *)(virt_start_ptr + 0x34) = 0x1;
-
-	/*
-	 * Clear the locations 0x50 & 0x54
-	 * Where we are logging the SPM0 CFG & CTL regs
-	 */
-	*(uint32_t *)(virt_start_ptr + 0x50) = 0x0;
-	*(uint32_t *)(virt_start_ptr + 0x54) = 0x0;
-
-	/*
-	 * Write known value to APPS PWRDOWN register
-	 */
-	*(uint32_t *)(virt_start_ptr + 0x58) = 0xDEAD;
-
-	/* This location tell us what PC we are doing
-	 * i.e. idle/suspend
-	 * idlePC	--> 0x2
-	 * suspendPC	--> 0x1
-	 */
-	*(uint32_t *)(virt_start_ptr + 0x38) = (1 << from_idle);
-
 	/* Clear "reserved1" variable in msm_pm_smem_data */
 	msm_pm_smem_data->reserved1 = 0x0;
 
@@ -932,12 +915,11 @@ static int msm_pm_power_collapse
 
 	memset(msm_pm_smem_data, 0, sizeof(*msm_pm_smem_data));
 
+	if (cpu_is_msm8625()) {
 	if (msm_cpr_ops && msm_cpr_ops->cpr_suspend()) {
 		ret = -EAGAIN;
 		goto power_collapse_bail;
 	}
-
-	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
 		/* Program the SPM */
 		ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_COLLAPSE,
 									false);
@@ -946,6 +928,8 @@ static int msm_pm_power_collapse
 
 	msm_pm_irq_extns->enter_sleep1(true, from_idle,
 						&msm_pm_smem_data->irq_mask);
+
+	i2c_gpio_suspend_set(true);
 	msm_sirc_enter_sleep();
 	msm_gpio_enter_sleep(from_idle);
 
@@ -1015,7 +999,7 @@ static int msm_pm_power_collapse
 
 	if (saved_acpuclk_rate == 0) {
 		msm_pm_config_hw_after_power_up();
-		goto power_collapse_early_exit;
+		goto acpu_switch_fail;
 	}
 
 	/* save the AHB clock registers */
@@ -1133,6 +1117,8 @@ static int msm_pm_power_collapse
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND | MSM_PM_DEBUG_POWER_COLLAPSE,
 		KERN_INFO,
 		"%s(): msm_pm_collapse returned %d\n", __func__, collapsed);
+
+	i2c_gpio_suspend_set(false);
 
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_CLOCK, KERN_INFO,
 		"%s(): restore clock rate to %lu\n", __func__,
@@ -1253,12 +1239,16 @@ static int msm_pm_power_collapse
 		WARN_ON(ret);
 	}
 
-	if (msm_cpr_ops)
+	/* Call CPR resume only for "idlePC" case */
+	if (msm_cpr_ops && from_idle)
 		msm_cpr_ops->cpr_resume();
 
-	*(uint32_t *)(virt_start_ptr + 0x30) = 0x20;
-	*(uint32_t *)(virt_start_ptr + 0x34) = 0x0;
 	return 0;
+
+acpu_switch_fail:
+	msm_pm_irq_extns->exit_sleep1(msm_pm_smem_data->irq_mask,
+		msm_pm_smem_data->wakeup_reason,
+		msm_pm_smem_data->pending_irqs);
 
 power_collapse_early_exit:
 	*(uint32_t *)(virt_start_ptr + 0x30) = 0x21;
@@ -1309,17 +1299,17 @@ power_collapse_restore_gpio_bail:
 
 	MSM_PM_DEBUG_PRINT_STATE("msm_pm_power_collapse(): RUN");
 
-	*(uint32_t *)(virt_start_ptr + 0x30) = 0x23;
+	i2c_gpio_suspend_set(false);
 
 	if (collapsed)
 		smd_sleep_exit();
 
-	if (msm_cpr_ops)
+	/* Call CPR resume only for "idlePC" case */
+	if (msm_cpr_ops && from_idle)
 		msm_cpr_ops->cpr_resume();
 
-	*(uint32_t *)(virt_start_ptr + 0x30) = 0x24;
-
-	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
+power_collapse_bail:
+	if (cpu_is_msm8625()) {
 		ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING,
 									false);
 		WARN_ON(ret);
@@ -1575,7 +1565,7 @@ static int msm_pm_swfi(bool ramp_acpu)
 
 static int64_t msm_pm_timer_enter_suspend(int64_t *period)
 {
-	int time = 0;
+	int64_t time = 0;
 
 	time = msm_timer_get_sclk_time(period);
 	if (!time)
@@ -1617,7 +1607,7 @@ void arch_idle(void)
 	unsigned int cpu;
 	int64_t t1;
 	static DEFINE_PER_CPU(int64_t, t2);
-	int exit_stat;
+	volatile int exit_stat;
 
 	if (!atomic_read(&msm_pm_init_done))
 		return;

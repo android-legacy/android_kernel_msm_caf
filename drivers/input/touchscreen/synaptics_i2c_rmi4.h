@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,10 +21,17 @@
 #ifndef _SYNAPTICS_DSX_RMI4_H_
 #define _SYNAPTICS_DSX_RMI4_H_
 
-#define SYNAPTICS_RMI4_DRIVER_VERSION "DSX 1.0"
+#define SYNAPTICS_DS4 (1 << 0)
+#define SYNAPTICS_DS5 (1 << 1)
+#define SYNAPTICS_DSX_DRIVER_PRODUCT SYNAPTICS_DS4
+#define SYNAPTICS_DSX_DRIVER_VERSION 0x1005
 
 #include <linux/version.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
+
+#ifdef CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
+#elif defined CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
 
@@ -144,6 +152,7 @@ struct synaptics_rmi4_device_info {
 	unsigned short serial_number;
 	unsigned char product_id_string[SYNAPTICS_RMI4_PRODUCT_ID_SIZE + 1];
 	unsigned char build_id[SYNAPTICS_RMI4_BUILD_ID_SIZE];
+	unsigned char config_id[3];
 	struct list_head support_fn_list;
 };
 
@@ -172,6 +181,8 @@ struct synaptics_rmi4_device_info {
  * @irq_enabled: flag for indicating interrupt enable status
  * @touch_stopped: flag to stop interrupt thread processing
  * @fingers_on_2d: flag to indicate presence of fingers in 2d area
+ * @flip_x: set to TRUE if desired to flip direction on x-axis
+ * @flip_y: set to TRUE if desired to flip direction on y-axis
  * @sensor_sleep: flag to indicate sleep state of sensor
  * @wait: wait queue for touch data polling in interrupt thread
  * @i2c_read: pointer to i2c read function
@@ -183,11 +194,12 @@ struct synaptics_rmi4_data {
 	struct input_dev *input_dev;
 	const struct synaptics_rmi4_platform_data *board;
 	struct synaptics_rmi4_device_info rmi4_mod_info;
-	struct regulator *regulator;
+	struct regulator *vdd;
+	struct regulator *vcc_i2c;
 	struct mutex rmi4_io_ctrl_mutex;
 	struct delayed_work det_work;
 	struct workqueue_struct *det_workqueue;
-	struct early_suspend early_suspend;
+	const char *fw_image_name;
 	unsigned char current_page;
 	unsigned char button_0d_enabled;
 	unsigned char full_pm_cycle;
@@ -207,6 +219,8 @@ struct synaptics_rmi4_data {
 	bool touch_stopped;
 	bool fingers_on_2d;
 	bool sensor_sleep;
+	bool flip_x;
+	bool flip_y;
 	wait_queue_head_t wait;
 	int (*i2c_read)(struct synaptics_rmi4_data *pdata, unsigned short addr,
 			unsigned char *data, unsigned short length);
@@ -214,6 +228,13 @@ struct synaptics_rmi4_data {
 			unsigned char *data, unsigned short length);
 	int (*irq_enable)(struct synaptics_rmi4_data *rmi4_data, bool enable);
 	int (*reset_device)(struct synaptics_rmi4_data *rmi4_data);
+#ifdef CONFIG_FB
+	struct notifier_block fb_notif;
+#else
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
+#endif
+#endif
 };
 
 enum exp_fn {
@@ -237,14 +258,6 @@ void synaptics_rmi4_new_function(enum exp_fn fn_type, bool insert,
 		void (*func_remove)(struct synaptics_rmi4_data *rmi4_data),
 		void (*func_attn)(struct synaptics_rmi4_data *rmi4_data,
 				unsigned char intr_mask));
-
-static inline ssize_t synaptics_rmi4_show_error(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	dev_warn(dev, "%s Attempted to read from write-only attribute %s\n",
-			__func__, attr->attr.name);
-	return -EPERM;
-}
 
 static inline ssize_t synaptics_rmi4_store_error(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)

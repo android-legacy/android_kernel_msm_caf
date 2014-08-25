@@ -73,17 +73,17 @@ struct rmidev_data {
 };
 
 static struct device_attribute attrs[] = {
-	__ATTR(open, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(open, S_IWUSR | S_IWGRP,
+			NULL,
 			rmidev_sysfs_open_store),
-	__ATTR(release, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(release, S_IWUSR | S_IWGRP,
+			NULL,
 			rmidev_sysfs_release_store),
-	__ATTR(address, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(address, S_IWUSR | S_IWGRP,
+			NULL,
 			rmidev_sysfs_address_store),
-	__ATTR(length, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(length, S_IWUSR | S_IWGRP,
+			NULL,
 			rmidev_sysfs_length_store),
 	__ATTR(data, S_IRUGO | S_IWUSR | S_IWGRP,
 			rmidev_sysfs_data_show,
@@ -619,6 +619,8 @@ static int rmidev_init_device(struct synaptics_rmi4_data *rmi4_data)
 		}
 	}
 
+	init_completion(&remove_complete);
+
 	return 0;
 
 err_sysfs_attrs:
@@ -706,5 +708,4 @@ module_exit(rmidev_module_exit);
 
 MODULE_AUTHOR("Synaptics, Inc.");
 MODULE_DESCRIPTION("RMI4 RMI_Dev Module");
-MODULE_LICENSE("GPL");
-MODULE_VERSION(SYNAPTICS_RMI4_DRIVER_VERSION);
+MODULE_LICENSE("GPL v2");

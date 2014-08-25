@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -487,13 +487,15 @@ static int mipi_nt35510_lcd_on(struct platform_device *pdev)
 		rotate = mipi_nt35510_pdata->rotate_panel();
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		if (rotate)
-			video19[2] = 0x06;
-
 		mipi_dsi_cmds_tx(&nt35510_tx_buf,
 			nt35510_video_display_on_cmds,
 			ARRAY_SIZE(nt35510_video_display_on_cmds));
 
+		if (rotate) {
+			mipi_dsi_cmds_tx(&nt35510_tx_buf,
+				nt35510_video_display_on_cmds_rotate,
+			ARRAY_SIZE(nt35510_video_display_on_cmds_rotate));
+		}
 	} else if (mipi->mode == DSI_CMD_MODE) {
 		mipi_dsi_cmds_tx(&nt35510_tx_buf,
 			nt35510_cmd_display_on_cmds,

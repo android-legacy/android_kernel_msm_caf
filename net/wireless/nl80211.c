@@ -1,8 +1,8 @@
 /*
- * This is the new netlink-based wireless configuration interface.
- *
- * Copyright 2006-2010	Johannes Berg <johannes@sipsolutions.net>
- */
+ *  * This is the new netlink-based wireless configuration interface.
+ *   *
+ *    * Copyright 2006-2010	Johannes Berg <johannes@sipsolutions.net>
+ *     */
 
 #include <linux/if.h>
 #include <linux/module.h>
@@ -206,6 +206,26 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_NOACK_MAP] = { .type = NLA_U16 },
 	[NL80211_ATTR_INACTIVITY_TIMEOUT] = { .type = NLA_U16 },
 	[NL80211_ATTR_BG_SCAN_PERIOD] = { .type = NLA_U16 },
+	[NL80211_ATTR_WDEV] = { .type = NLA_U64 },
+	[NL80211_ATTR_USER_REG_HINT_TYPE] = { .type = NLA_U32 },
+	[NL80211_ATTR_SAE_DATA] = { .type = NLA_BINARY, },
+	[NL80211_ATTR_VHT_CAPABILITY] = { .len = NL80211_VHT_CAPABILITY_LEN },
+	[NL80211_ATTR_SCAN_FLAGS] = { .type = NLA_U32 },
+	[NL80211_ATTR_P2P_CTWINDOW] = { .type = NLA_U8 },
+	[NL80211_ATTR_P2P_OPPPS] = { .type = NLA_U8 },
+	[NL80211_ATTR_ACL_POLICY] = {. type = NLA_U32 },
+	[NL80211_ATTR_MAC_ADDRS] = { .type = NLA_NESTED },
+	[NL80211_ATTR_STA_CAPABILITY] = { .type = NLA_U16 },
+	[NL80211_ATTR_STA_EXT_CAPABILITY] = { .type = NLA_BINARY, },
+	[NL80211_ATTR_SPLIT_WIPHY_DUMP] = { .type = NLA_FLAG, },
+	[NL80211_ATTR_DISABLE_VHT] = { .type = NLA_FLAG },
+	[NL80211_ATTR_VHT_CAPABILITY_MASK] = {
+		.len = NL80211_VHT_CAPABILITY_LEN,
+	},
+	[NL80211_ATTR_MDID] = { .type = NLA_U16 },
+	[NL80211_ATTR_IE_RIC] = { .type = NLA_BINARY,
+				  .len = IEEE80211_MAX_DATA_LEN },
+	[NL80211_ATTR_PEER_AID] = { .type = NLA_U16 },
 };
 
 /* policy for the key attributes */
@@ -811,6 +831,15 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
 				dev->wiphy.bands[band]->ht_cap.ampdu_density);
 		}
 
+		/* add VHT info */
+		if (dev->wiphy.bands[band]->vht_cap.vht_supported &&
+		    (nla_put(msg, NL80211_BAND_ATTR_VHT_MCS_SET,
+			     sizeof(dev->wiphy.bands[band]->vht_cap.vht_mcs),
+			     &dev->wiphy.bands[band]->vht_cap.vht_mcs) ||
+		     nla_put_u32(msg, NL80211_BAND_ATTR_VHT_CAPA,
+				 dev->wiphy.bands[band]->vht_cap.cap)))
+			goto nla_put_failure;
+
 		/* add frequencies */
 		nl_freqs = nla_nest_start(msg, NL80211_BAND_ATTR_FREQS);
 		if (!nl_freqs)
@@ -1043,6 +1072,11 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
 			sizeof(*dev->wiphy.ht_capa_mod_mask),
 			dev->wiphy.ht_capa_mod_mask);
 
+	if (dev->wiphy.flags & WIPHY_FLAG_HAVE_AP_SME &&
+	    dev->wiphy.max_acl_mac_addrs)
+		NLA_PUT_U32(msg, NL80211_ATTR_MAC_ACL_MAX,
+			    dev->wiphy.max_acl_mac_addrs);
+
 	return genlmsg_end(msg, hdr);
 
  nla_put_failure:
@@ -1121,15 +1155,15 @@ static int parse_txq_params(struct nlattr *tb[],
 static bool nl80211_can_set_dev_channel(struct wireless_dev *wdev)
 {
 	/*
-	 * You can only set the channel explicitly for AP, mesh
-	 * and WDS type interfaces; all others have their channel
-	 * managed via their respective "establish a connection"
-	 * command (connect, join, ...)
-	 *
-	 * Monitors are special as they are normally slaved to
-	 * whatever else is going on, so they behave as though
-	 * you tried setting the wiphy channel itself.
-	 */
+ * 	 * You can only set the channel explicitly for AP, mesh
+ * 	 	 * and WDS type interfaces; all others have their channel
+ * 	 	 	 * managed via their respective "establish a connection"
+ * 	 	 	 	 * command (connect, join, ...)
+ * 	 	 	 	 	 *
+ * 	 	 	 	 	 	 * Monitors are special as they are normally slaved to
+ * 	 	 	 	 	 	 	 * whatever else is going on, so they behave as though
+ * 	 	 	 	 	 	 	 	 * you tried setting the wiphy channel itself.
+ * 	 	 	 	 	 	 	 	 	 */
 	return !wdev ||
 		wdev->iftype == NL80211_IFTYPE_AP ||
 		wdev->iftype == NL80211_IFTYPE_WDS ||
@@ -1222,14 +1256,14 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
 	u8 coverage_class = 0;
 
 	/*
-	 * Try to find the wiphy and netdev. Normally this
-	 * function shouldn't need the netdev, but this is
-	 * done for backward compatibility -- previously
-	 * setting the channel was done per wiphy, but now
-	 * it is per netdev. Previous userland like hostapd
-	 * also passed a netdev to set_wiphy, so that it is
-	 * possible to let that go to the right netdev!
-	 */
+ * 	 * Try to find the wiphy and netdev. Normally this
+ * 	 	 * function shouldn't need the netdev, but this is
+ * 	 	 	 * done for backward compatibility -- previously
+ * 	 	 	 	 * setting the channel was done per wiphy, but now
+ * 	 	 	 	 	 * it is per netdev. Previous userland like hostapd
+ * 	 	 	 	 	 	 * also passed a netdev to set_wiphy, so that it is
+ * 	 	 	 	 	 	 	 * possible to let that go to the right netdev!
+ * 	 	 	 	 	 	 	 	 */
 	mutex_lock(&cfg80211_mutex);
 
 	if (info->attrs[NL80211_ATTR_IFINDEX]) {
@@ -1261,9 +1295,9 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
 		wdev = NULL;
 
 	/*
-	 * end workaround code, by now the rdev is available
-	 * and locked, and wdev may or may not be NULL.
-	 */
+ * 	 * end workaround code, by now the rdev is available
+ * 	 	 * and locked, and wdev may or may not be NULL.
+ * 	 	 	 */
 
 	if (info->attrs[NL80211_ATTR_WIPHY_NAME])
 		result = cfg80211_dev_rename(
@@ -1366,7 +1400,7 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
 		rx_ant = nla_get_u32(info->attrs[NL80211_ATTR_WIPHY_ANTENNA_RX]);
 
 		/* reject antenna configurations which don't match the
-		 * available antenna masks, except for the "all" mask */
+ * 		 * available antenna masks, except for the "all" mask */
 		if ((~tx_ant && (tx_ant & ~rdev->wiphy.available_antennas_tx)) ||
 		    (~rx_ant && (rx_ant & ~rdev->wiphy.available_antennas_rx))) {
 			result = -EINVAL;
@@ -1412,11 +1446,11 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
 		}
 		if (frag_threshold != (u32) -1) {
 			/*
-			 * Fragments (apart from the last one) are required to
-			 * have even length. Make the fragmentation code
-			 * simpler by stripping LSB should someone try to use
-			 * odd threshold value.
-			 */
+ * 			 * Fragments (apart from the last one) are required to
+ * 			 			 * have even length. Make the fragmentation code
+ * 			 			 			 * simpler by stripping LSB should someone try to use
+ * 			 			 			 			 * odd threshold value.
+ * 			 			 			 			 			 */
 			frag_threshold &= ~0x1;
 		}
 		changed |= WIPHY_PARAM_FRAG_THRESHOLD;
@@ -2082,6 +2116,97 @@ static int nl80211_del_key(struct sk_buff *skb, struct genl_info *info)
 	return err;
 }
 
+/* This function returns an error or the number of nested attributes */
+static int validate_acl_mac_addrs(struct nlattr *nl_attr)
+{
+	struct nlattr *attr;
+	int n_entries = 0, tmp;
+
+	nla_for_each_nested(attr, nl_attr, tmp) {
+		if (nla_len(attr) != ETH_ALEN)
+			return -EINVAL;
+
+		n_entries++;
+	}
+
+	return n_entries;
+}
+
+/*
+ *  * This function parses ACL information and allocates memory for ACL data.
+ *   * On successful return, the calling function is responsible to free the
+ *    * ACL buffer returned by this function.
+ *     */
+static struct cfg80211_acl_data *parse_acl_data(struct wiphy *wiphy,
+						struct genl_info *info)
+{
+	enum nl80211_acl_policy acl_policy;
+	struct nlattr *attr;
+	struct cfg80211_acl_data *acl;
+	int i = 0, n_entries, tmp;
+
+	if (!wiphy->max_acl_mac_addrs)
+		return ERR_PTR(-EOPNOTSUPP);
+
+	if (!info->attrs[NL80211_ATTR_ACL_POLICY])
+		return ERR_PTR(-EINVAL);
+
+	acl_policy = nla_get_u32(info->attrs[NL80211_ATTR_ACL_POLICY]);
+	if (acl_policy != NL80211_ACL_POLICY_ACCEPT_UNLESS_LISTED &&
+	    acl_policy != NL80211_ACL_POLICY_DENY_UNLESS_LISTED)
+		return ERR_PTR(-EINVAL);
+
+	if (!info->attrs[NL80211_ATTR_MAC_ADDRS])
+		return ERR_PTR(-EINVAL);
+
+	n_entries = validate_acl_mac_addrs(info->attrs[NL80211_ATTR_MAC_ADDRS]);
+	if (n_entries < 0)
+		return ERR_PTR(n_entries);
+
+	if (n_entries > wiphy->max_acl_mac_addrs)
+		return ERR_PTR(-ENOTSUPP);
+
+	acl = kzalloc(sizeof(*acl) + (sizeof(struct mac_address) * n_entries),
+		      GFP_KERNEL);
+	if (!acl)
+		return ERR_PTR(-ENOMEM);
+
+	nla_for_each_nested(attr, info->attrs[NL80211_ATTR_MAC_ADDRS], tmp) {
+		memcpy(acl->mac_addrs[i].addr, nla_data(attr), ETH_ALEN);
+		i++;
+	}
+
+	acl->n_acl_entries = n_entries;
+	acl->acl_policy = acl_policy;
+
+	return acl;
+}
+
+static int nl80211_set_mac_acl(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct cfg80211_acl_data *acl;
+	int err;
+
+	if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_AP &&
+	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO)
+		return -EOPNOTSUPP;
+
+	if (!dev->ieee80211_ptr->beacon_interval)
+		return -EINVAL;
+
+	acl = parse_acl_data(&rdev->wiphy, info);
+	if (IS_ERR(acl))
+		return PTR_ERR(acl);
+
+	err = rdev->ops->set_mac_acl(&rdev->wiphy, dev, acl);
+
+	kfree(acl);
+
+	return err;
+}
+
 static int nl80211_parse_beacon(struct genl_info *info,
 				struct cfg80211_beacon_data *bcn)
 {
@@ -2182,12 +2307,12 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 		return err;
 
 	/*
-	 * In theory, some of these attributes should be required here
-	 * but since they were not used when the command was originally
-	 * added, keep them optional for old user space programs to let
-	 * them continue to work with drivers that do not need the
-	 * additional information -- drivers must check!
-	 */
+ * 	 * In theory, some of these attributes should be required here
+ * 	 	 * but since they were not used when the command was originally
+ * 	 	 	 * added, keep them optional for old user space programs to let
+ * 	 	 	 	 * them continue to work with drivers that do not need the
+ * 	 	 	 	 	 * additional information -- drivers must check!
+ * 	 	 	 	 	 	 */
 	if (info->attrs[NL80211_ATTR_SSID]) {
 		params.ssid = nla_data(info->attrs[NL80211_ATTR_SSID]);
 		params.ssid_len =
@@ -2228,9 +2353,18 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 			info->attrs[NL80211_ATTR_INACTIVITY_TIMEOUT]);
 	}
 
+	if (info->attrs[NL80211_ATTR_ACL_POLICY]) {
+		params.acl = parse_acl_data(&rdev->wiphy, info);
+		if (IS_ERR(params.acl))
+			return PTR_ERR(params.acl);
+	}
+
 	err = rdev->ops->start_ap(&rdev->wiphy, dev, &params);
 	if (!err)
 		wdev->beacon_interval = params.beacon_interval;
+
+	kfree(params.acl);
+
 	return err;
 }
 
@@ -2277,8 +2411,8 @@ static int nl80211_stop_ap(struct sk_buff *skb, struct genl_info *info)
 		return -ENOENT;
 
 	err = rdev->ops->stop_ap(&rdev->wiphy, dev);
-	if (!err)
-		wdev->beacon_interval = 0;
+	wdev->beacon_interval = 0;
+
 	return err;
 }
 
@@ -2300,9 +2434,9 @@ static int parse_station_flags(struct genl_info *info,
 	int flag;
 
 	/*
-	 * Try parsing the new attribute first so userspace
-	 * can specify both for older kernels.
-	 */
+ * 	 * Try parsing the new attribute first so userspace
+ * 	 	 * can specify both for older kernels.
+ * 	 	 	 */
 	nla = info->attrs[NL80211_ATTR_STA_FLAGS2];
 	if (nla) {
 		struct nl80211_sta_flag_update *sta_flags;
@@ -2327,11 +2461,11 @@ static int parse_station_flags(struct genl_info *info,
 		return -EINVAL;
 
 	/*
-	 * Only allow certain flags for interface types so that
-	 * other attributes are silently ignored. Remember that
-	 * this is backward compatibility code with old userspace
-	 * and shouldn't be hit in other cases anyway.
-	 */
+ * 	 * Only allow certain flags for interface types so that
+ * 	 	 * other attributes are silently ignored. Remember that
+ * 	 	 	 * this is backward compatibility code with old userspace
+ * 	 	 	 	 * and shouldn't be hit in other cases anyway.
+ * 	 	 	 	 	 */
 	switch (iftype) {
 	case NL80211_IFTYPE_AP:
 	case NL80211_IFTYPE_AP_VLAN:
@@ -2369,25 +2503,46 @@ static bool nl80211_put_sta_rate(struct sk_buff *msg, struct rate_info *info,
 
 	rate = nla_nest_start(msg, attr);
 	if (!rate)
-		goto nla_put_failure;
+		return false;
 
 	/* cfg80211_calculate_bitrate will return 0 for mcs >= 32 */
 	bitrate = cfg80211_calculate_bitrate(info);
 	if (bitrate > 0)
-		NLA_PUT_U16(msg, NL80211_RATE_INFO_BITRATE, bitrate);
+		nla_put_u16(msg, NL80211_RATE_INFO_BITRATE, bitrate);
 
-	if (info->flags & RATE_INFO_FLAGS_MCS)
-		NLA_PUT_U8(msg, NL80211_RATE_INFO_MCS, info->mcs);
-	if (info->flags & RATE_INFO_FLAGS_40_MHZ_WIDTH)
-		NLA_PUT_FLAG(msg, NL80211_RATE_INFO_40_MHZ_WIDTH);
-	if (info->flags & RATE_INFO_FLAGS_SHORT_GI)
-		NLA_PUT_FLAG(msg, NL80211_RATE_INFO_SHORT_GI);
+	if (info->flags & RATE_INFO_FLAGS_MCS) {
+		if (nla_put_u8(msg, NL80211_RATE_INFO_MCS, info->mcs))
+			return false;
+		if (info->flags & RATE_INFO_FLAGS_40_MHZ_WIDTH &&
+		    nla_put_flag(msg, NL80211_RATE_INFO_40_MHZ_WIDTH))
+			return false;
+		if (info->flags & RATE_INFO_FLAGS_SHORT_GI &&
+		    nla_put_flag(msg, NL80211_RATE_INFO_SHORT_GI))
+			return false;
+	} else if (info->flags & RATE_INFO_FLAGS_VHT_MCS) {
+		if (nla_put_u8(msg, NL80211_RATE_INFO_VHT_MCS, info->mcs))
+			return false;
+		if (nla_put_u8(msg, NL80211_RATE_INFO_VHT_NSS, info->nss))
+			return false;
+		if (info->flags & RATE_INFO_FLAGS_40_MHZ_WIDTH &&
+		    nla_put_flag(msg, NL80211_RATE_INFO_40_MHZ_WIDTH))
+			return false;
+		if (info->flags & RATE_INFO_FLAGS_80_MHZ_WIDTH &&
+		    nla_put_flag(msg, NL80211_RATE_INFO_80_MHZ_WIDTH))
+			return false;
+		if (info->flags & RATE_INFO_FLAGS_80P80_MHZ_WIDTH &&
+		    nla_put_flag(msg, NL80211_RATE_INFO_80P80_MHZ_WIDTH))
+			return false;
+		if (info->flags & RATE_INFO_FLAGS_160_MHZ_WIDTH &&
+		    nla_put_flag(msg, NL80211_RATE_INFO_160_MHZ_WIDTH))
+			return false;
+		if (info->flags & RATE_INFO_FLAGS_SHORT_GI &&
+		    nla_put_flag(msg, NL80211_RATE_INFO_SHORT_GI))
+			return false;
+	}
 
 	nla_nest_end(msg, rate);
 	return true;
-
-nla_put_failure:
-	return false;
 }
 
 static int nl80211_send_station(struct sk_buff *msg, u32 pid, u32 seq,
@@ -2590,8 +2745,8 @@ static int nl80211_get_station(struct sk_buff *skb, struct genl_info *info)
 }
 
 /*
- * Get vlan interface making sure it is running and on the right wiphy.
- */
+ *  * Get vlan interface making sure it is running and on the right wiphy.
+ *   */
 static struct net_device *get_vlan(struct genl_info *info,
 				   struct cfg80211_registered_device *rdev)
 {
@@ -2622,6 +2777,56 @@ static struct net_device *get_vlan(struct genl_info *info,
 	return ERR_PTR(ret);
 }
 
+static struct nla_policy
+nl80211_sta_wme_policy[NL80211_STA_WME_MAX + 1] __read_mostly = {
+	[NL80211_STA_WME_UAPSD_QUEUES] = { .type = NLA_U8 },
+	[NL80211_STA_WME_MAX_SP] = { .type = NLA_U8 },
+};
+
+static int nl80211_set_station_tdls(struct genl_info *info,
+				    struct station_parameters *params)
+{
+	struct nlattr *tb[NL80211_STA_WME_MAX + 1];
+	struct nlattr *nla;
+	int err;
+
+	/* Dummy STA entry gets updated once the peer capabilities are known */
+	if (info->attrs[NL80211_ATTR_PEER_AID])
+		params->aid = nla_get_u16(info->attrs[NL80211_ATTR_PEER_AID]);
+	if (info->attrs[NL80211_ATTR_HT_CAPABILITY])
+		params->ht_capa =
+			nla_data(info->attrs[NL80211_ATTR_HT_CAPABILITY]);
+	if (info->attrs[NL80211_ATTR_VHT_CAPABILITY])
+		params->vht_capa =
+			nla_data(info->attrs[NL80211_ATTR_VHT_CAPABILITY]);
+
+	/* parse WME attributes if present */
+	if (!info->attrs[NL80211_ATTR_STA_WME])
+		return 0;
+
+	nla = info->attrs[NL80211_ATTR_STA_WME];
+	err = nla_parse_nested(tb, NL80211_STA_WME_MAX, nla,
+			       nl80211_sta_wme_policy);
+	if (err)
+		return err;
+
+	if (tb[NL80211_STA_WME_UAPSD_QUEUES])
+		params->uapsd_queues = nla_get_u8(
+			tb[NL80211_STA_WME_UAPSD_QUEUES]);
+	if (params->uapsd_queues & ~IEEE80211_WMM_IE_STA_QOSINFO_AC_MASK)
+		return -EINVAL;
+
+	if (tb[NL80211_STA_WME_MAX_SP])
+		params->max_sp = nla_get_u8(tb[NL80211_STA_WME_MAX_SP]);
+
+	if (params->max_sp & ~IEEE80211_WMM_IE_STA_QOSINFO_SP_MASK)
+		return -EINVAL;
+
+	params->sta_modify_mask |= STATION_PARAM_APPLY_UAPSD;
+
+	return 0;
+}
+
 static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
@@ -2648,6 +2853,19 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 			nla_data(info->attrs[NL80211_ATTR_STA_SUPPORTED_RATES]);
 		params.supported_rates_len =
 			nla_len(info->attrs[NL80211_ATTR_STA_SUPPORTED_RATES]);
+	}
+
+	if (info->attrs[NL80211_ATTR_STA_CAPABILITY]) {
+		params.capability =
+			nla_get_u16(info->attrs[NL80211_ATTR_STA_CAPABILITY]);
+		params.sta_modify_mask |= STATION_PARAM_APPLY_CAPABILITY;
+	}
+
+	if (info->attrs[NL80211_ATTR_STA_EXT_CAPABILITY]) {
+		params.ext_capab =
+			nla_data(info->attrs[NL80211_ATTR_STA_EXT_CAPABILITY]);
+		params.ext_capab_len =
+			nla_len(info->attrs[NL80211_ATTR_STA_EXT_CAPABILITY]);
 	}
 
 	if (info->attrs[NL80211_ATTR_STA_LISTEN_INTERVAL])
@@ -2684,10 +2902,10 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 		if (params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER))
 			return -EINVAL;
 		/*
-		 * ... but don't bother the driver with it. This works around
-		 * a hostapd/wpa_supplicant issue -- it always includes the
-		 * TLDS_PEER flag in the mask even for AP mode.
-		 */
+ * 		 * ... but don't bother the driver with it. This works around
+ * 		 		 * a hostapd/wpa_supplicant issue -- it always includes the
+ * 		 		 		 * TLDS_PEER flag in the mask even for AP mode.
+ * 		 		 		 		 */
 		params.sta_flags_mask &= ~BIT(NL80211_STA_FLAG_TDLS_PEER);
 
 		/* accept only the listed bits */
@@ -2698,6 +2916,14 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 				  BIT(NL80211_STA_FLAG_MFP)))
 			return -EINVAL;
 
+		if (info->attrs[NL80211_ATTR_STA_CAPABILITY])
+			return -EINVAL;
+		if (info->attrs[NL80211_ATTR_STA_EXT_CAPABILITY])
+			return -EINVAL;
+		if (info->attrs[NL80211_ATTR_HT_CAPABILITY] ||
+		    info->attrs[NL80211_ATTR_VHT_CAPABILITY])
+			return -EINVAL;
+
 		/* must be last in here for error handling */
 		params.vlan = get_vlan(info, rdev);
 		if (IS_ERR(params.vlan))
@@ -2706,13 +2932,23 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_STATION:
 		/*
-		 * Don't allow userspace to change the TDLS_PEER flag,
-		 * but silently ignore attempts to change it since we
-		 * don't have state here to verify that it doesn't try
-		 * to change the flag.
-		 */
+ * 		 * Don't allow userspace to change the TDLS_PEER flag,
+ * 		 		 * but silently ignore attempts to change it since we
+ * 		 		 		 * don't have state here to verify that it doesn't try
+ * 		 		 		 		 * to change the flag.
+ * 		 		 		 		 		 */
 		params.sta_flags_mask &= ~BIT(NL80211_STA_FLAG_TDLS_PEER);
-		/* fall through */
+		/* Include parameters for TDLS peer (driver will check) */
+		err = nl80211_set_station_tdls(info, &params);
+		if (err)
+			return err;
+		/* disallow things sta doesn't support */
+		if (params.plink_action)
+			return -EINVAL;
+		if (params.sta_flags_mask & ~(BIT(NL80211_STA_FLAG_AUTHORIZED) |
+					      BIT(NL80211_STA_FLAG_WME)))
+			return -EINVAL;
+		break;
 	case NL80211_IFTYPE_ADHOC:
 		/* disallow things sta doesn't support */
 		if (params.plink_action)
@@ -2720,6 +2956,9 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 		if (params.ht_capa)
 			return -EINVAL;
 		if (params.listen_interval >= 0)
+			return -EINVAL;
+		if (info->attrs[NL80211_ATTR_HT_CAPABILITY] ||
+		    info->attrs[NL80211_ATTR_VHT_CAPABILITY])
 			return -EINVAL;
 		/* reject any changes other than AUTHORIZED */
 		if (params.sta_flags_mask & ~BIT(NL80211_STA_FLAG_AUTHORIZED))
@@ -2733,10 +2972,17 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 			return -EINVAL;
 		if (params.listen_interval >= 0)
 			return -EINVAL;
+		if (info->attrs[NL80211_ATTR_STA_CAPABILITY])
+			return -EINVAL;
+		if (info->attrs[NL80211_ATTR_STA_EXT_CAPABILITY])
+			return -EINVAL;
+		if (info->attrs[NL80211_ATTR_HT_CAPABILITY] ||
+		    info->attrs[NL80211_ATTR_VHT_CAPABILITY])
+			return -EINVAL;
 		/*
-		 * No special handling for TDLS here -- the userspace
-		 * mesh code doesn't have this bug.
-		 */
+ * 		 * No special handling for TDLS here -- the userspace
+ * 		 		 * mesh code doesn't have this bug.
+ * 		 		 		 */
 		if (params.sta_flags_mask &
 				~(BIT(NL80211_STA_FLAG_AUTHENTICATED) |
 				  BIT(NL80211_STA_FLAG_MFP) |
@@ -2757,12 +3003,6 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 	return err;
 }
 
-static struct nla_policy
-nl80211_sta_wme_policy[NL80211_STA_WME_MAX + 1] __read_mostly = {
-	[NL80211_STA_WME_UAPSD_QUEUES] = { .type = NLA_U8 },
-	[NL80211_STA_WME_MAX_SP] = { .type = NLA_U8 },
-};
-
 static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
@@ -2782,7 +3022,8 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 	if (!info->attrs[NL80211_ATTR_STA_SUPPORTED_RATES])
 		return -EINVAL;
 
-	if (!info->attrs[NL80211_ATTR_STA_AID])
+	if (!info->attrs[NL80211_ATTR_STA_AID] &&
+	    !info->attrs[NL80211_ATTR_PEER_AID])
 		return -EINVAL;
 
 	mac_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
@@ -2793,13 +3034,33 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 	params.listen_interval =
 		nla_get_u16(info->attrs[NL80211_ATTR_STA_LISTEN_INTERVAL]);
 
-	params.aid = nla_get_u16(info->attrs[NL80211_ATTR_STA_AID]);
+	if (info->attrs[NL80211_ATTR_PEER_AID])
+		params.aid = nla_get_u16(info->attrs[NL80211_ATTR_PEER_AID]);
+	else
+		params.aid = nla_get_u16(info->attrs[NL80211_ATTR_STA_AID]);
 	if (!params.aid || params.aid > IEEE80211_MAX_AID)
 		return -EINVAL;
+
+	if (info->attrs[NL80211_ATTR_STA_CAPABILITY]) {
+		params.capability =
+			nla_get_u16(info->attrs[NL80211_ATTR_STA_CAPABILITY]);
+		params.sta_modify_mask |= STATION_PARAM_APPLY_CAPABILITY;
+	}
+
+	if (info->attrs[NL80211_ATTR_STA_EXT_CAPABILITY]) {
+		params.ext_capab =
+			nla_data(info->attrs[NL80211_ATTR_STA_EXT_CAPABILITY]);
+		params.ext_capab_len =
+			nla_len(info->attrs[NL80211_ATTR_STA_EXT_CAPABILITY]);
+	}
 
 	if (info->attrs[NL80211_ATTR_HT_CAPABILITY])
 		params.ht_capa =
 			nla_data(info->attrs[NL80211_ATTR_HT_CAPABILITY]);
+
+	if (info->attrs[NL80211_ATTR_VHT_CAPABILITY])
+		params.vht_capa =
+			nla_data(info->attrs[NL80211_ATTR_VHT_CAPABILITY]);
 
 	if (info->attrs[NL80211_ATTR_STA_PLINK_ACTION])
 		params.plink_action =
@@ -2846,7 +3107,8 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 			params.sta_modify_mask |= STATION_PARAM_APPLY_UAPSD;
 		}
 		/* TDLS peers cannot be added */
-		if (params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER))
+		if ((params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)) ||
+		    info->attrs[NL80211_ATTR_PEER_AID])
 			return -EINVAL;
 		/* but don't bother the driver with it */
 		params.sta_flags_mask &= ~BIT(NL80211_STA_FLAG_TDLS_PEER);
@@ -2858,10 +3120,12 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 		break;
 	case NL80211_IFTYPE_MESH_POINT:
 		/* TDLS peers cannot be added */
-		if (params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER))
+		if ((params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)) ||
+		    info->attrs[NL80211_ATTR_PEER_AID])
 			return -EINVAL;
 		break;
 	case NL80211_IFTYPE_STATION:
+	case NL80211_IFTYPE_P2P_CLIENT:
 		/* Only TDLS peers can be added */
 		if (!(params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)))
 			return -EINVAL;
@@ -3210,11 +3474,11 @@ static int nl80211_req_set_reg(struct sk_buff *skb, struct genl_info *info)
 	char *data = NULL;
 
 	/*
-	 * You should only get this when cfg80211 hasn't yet initialized
-	 * completely when built-in to the kernel right between the time
-	 * window between nl80211_init() and regulatory_init(), if that is
-	 * even possible.
-	 */
+ * 	 * You should only get this when cfg80211 hasn't yet initialized
+ * 	 	 * completely when built-in to the kernel right between the time
+ * 	 	 	 * window between nl80211_init() and regulatory_init(), if that is
+ * 	 	 	 	 * even possible.
+ * 	 	 	 	 	 */
 	mutex_lock(&cfg80211_mutex);
 	if (unlikely(!cfg80211_regdomain)) {
 		mutex_unlock(&cfg80211_mutex);
@@ -3383,7 +3647,7 @@ do {\
 		return -EINVAL;
 
 	/* This makes sure that there aren't more than 32 mesh config
-	 * parameters (otherwise our bitfield scheme would not work.) */
+ * 	 * parameters (otherwise our bitfield scheme would not work.) */
 	BUILD_BUG_ON(NL80211_MESHCONF_ATTR_MAX > 32);
 
 	/* Fill in the params struct */
@@ -3649,9 +3913,9 @@ static int nl80211_set_reg(struct sk_buff *skb, struct genl_info *info)
 	rd->alpha2[1] = alpha2[1];
 
 	/*
-	 * Disable DFS master mode if the DFS region was
-	 * not supported or known on this kernel.
-	 */
+ * 	 * Disable DFS master mode if the DFS region was
+ * 	 	 * not supported or known on this kernel.
+ * 	 	 	 */
 	if (reg_supported_dfs_region(dfs_region))
 		rd->dfs_region = dfs_region;
 
@@ -3694,14 +3958,14 @@ static int validate_scan_freqs(struct nlattr *freqs)
 	nla_for_each_nested(attr1, freqs, tmp1) {
 		n_channels++;
 		/*
-		 * Some hardware has a limited channel list for
-		 * scanning, and it is pretty much nonsensical
-		 * to scan for a channel twice, so disallow that
-		 * and don't require drivers to check that the
-		 * channel list they get isn't longer than what
-		 * they can scan, as long as they can scan all
-		 * the channels they registered at once.
-		 */
+ * 		 * Some hardware has a limited channel list for
+ * 		 		 * scanning, and it is pretty much nonsensical
+ * 		 		 		 * to scan for a channel twice, so disallow that
+ * 		 		 		 		 * and don't require drivers to check that the
+ * 		 		 		 		 		 * channel list they get isn't longer than what
+ * 		 		 		 		 		 		 * they can scan, as long as they can scan all
+ * 		 		 		 		 		 		 		 * the channels they registered at once.
+ * 		 		 		 		 		 		 		 		 */
 		nla_for_each_nested(attr2, freqs, tmp2)
 			if (attr1 != attr2 &&
 			    nla_get_u32(attr1) == nla_get_u32(attr2))
@@ -4483,9 +4747,9 @@ static int nl80211_authenticate(struct sk_buff *skb, struct genl_info *info)
 	local_state_change = !!info->attrs[NL80211_ATTR_LOCAL_STATE_CHANGE];
 
 	/*
-	 * Since we no longer track auth state, ignore
-	 * requests to only change local state.
-	 */
+ * 	 * Since we no longer track auth state, ignore
+ * 	 	 * requests to only change local state.
+ * 	 	 	 */
 	if (local_state_change)
 		return 0;
 
@@ -4941,9 +5205,9 @@ static int nl80211_testmode_dump(struct sk_buff *skb,
 
 	if (cb->args[0]) {
 		/*
-		 * 0 is a valid index, but not valid for args[0],
-		 * so we need to offset by 1.
-		 */
+ * 		 * 0 is a valid index, but not valid for args[0],
+ * 		 		 * so we need to offset by 1.
+ * 		 		 		 */
 		phy_idx = cb->args[0] - 1;
 	} else {
 		err = nlmsg_parse(cb->nlh, GENL_HDRLEN + nl80211_fam.hdrsize,
@@ -5104,12 +5368,14 @@ EXPORT_SYMBOL(cfg80211_testmode_alloc_event_skb);
 
 void cfg80211_testmode_event(struct sk_buff *skb, gfp_t gfp)
 {
+	struct cfg80211_registered_device *rdev = ((void **)skb->cb)[0];
 	void *hdr = ((void **)skb->cb)[1];
 	struct nlattr *data = ((void **)skb->cb)[2];
 
 	nla_nest_end(skb, data);
 	genlmsg_end(skb, hdr);
-	genlmsg_multicast(skb, 0, nl80211_testmode_mcgrp.id, gfp);
+	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), skb, 0,
+				nl80211_testmode_mcgrp.id, gfp);
 }
 EXPORT_SYMBOL(cfg80211_testmode_event);
 #endif
@@ -5382,9 +5648,9 @@ static int nl80211_remain_on_channel(struct sk_buff *skb,
 	duration = nla_get_u32(info->attrs[NL80211_ATTR_DURATION]);
 
 	/*
-	 * We should be on that channel for at least one jiffie,
-	 * and more than 5 seconds seems excessive.
-	 */
+ * 	 * We should be on that channel for at least one jiffie,
+ * 	 	 * and more than 5 seconds seems excessive.
+ * 	 	 	 */
 	if (!duration || !msecs_to_jiffies(duration) ||
 	    duration > rdev->wiphy.max_remain_on_channel_duration)
 		return -EINVAL;
@@ -5549,9 +5815,9 @@ static int nl80211_set_tx_bitrate_mask(struct sk_buff *skb,
 	}
 
 	/*
-	 * The nested attribute uses enum nl80211_band as the index. This maps
-	 * directly to the enum ieee80211_band values used in cfg80211.
-	 */
+ * 	 * The nested attribute uses enum nl80211_band as the index. This maps
+ * 	 	 * directly to the enum ieee80211_band values used in cfg80211.
+ * 	 	 	 */
 	BUILD_BUG_ON(NL80211_MAX_SUPP_HT_RATES > IEEE80211_HT_MCS_MASK_LEN * 8);
 	nla_for_each_nested(tx_rates, info->attrs[NL80211_ATTR_TX_RATES], rem)
 	{
@@ -5580,7 +5846,7 @@ static int nl80211_set_tx_bitrate_mask(struct sk_buff *skb,
 
 		if (mask.control[band].legacy == 0) {
 			/* don't allow empty legacy rates if HT
-			 * is not even supported. */
+ * 			 * is not even supported. */
 			if (!rdev->wiphy.bands[band]->ht_cap.ht_supported)
 				return -EINVAL;
 
@@ -6299,6 +6565,27 @@ static int nl80211_register_beacons(struct sk_buff *skb, struct genl_info *info)
 	return 0;
 }
 
+static int nl80211_update_ft_ies(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct cfg80211_update_ft_ies_params ft_params;
+	struct net_device *dev = info->user_ptr[1];
+
+	if (!rdev->ops->update_ft_ies)
+		return -EOPNOTSUPP;
+
+	if (!info->attrs[NL80211_ATTR_MDID] ||
+	    !is_valid_ie_attr(info->attrs[NL80211_ATTR_IE]))
+		return -EINVAL;
+
+	memset(&ft_params, 0, sizeof(ft_params));
+	ft_params.md = nla_get_u16(info->attrs[NL80211_ATTR_MDID]);
+	ft_params.ie = nla_data(info->attrs[NL80211_ATTR_IE]);
+	ft_params.ie_len = nla_len(info->attrs[NL80211_ATTR_IE]);
+
+	return rdev->ops->update_ft_ies(&rdev->wiphy, dev, &ft_params);
+}
+
 #define NL80211_FLAG_NEED_WIPHY		0x01
 #define NL80211_FLAG_NEED_NETDEV	0x02
 #define NL80211_FLAG_NEED_RTNL		0x04
@@ -6887,6 +7174,22 @@ static struct genl_ops nl80211_ops[] = {
 		.internal_flags = NL80211_FLAG_NEED_NETDEV |
 				  NL80211_FLAG_NEED_RTNL,
 	},
+	{
+		.cmd = NL80211_CMD_SET_MAC_ACL,
+		.doit = nl80211_set_mac_acl,
+		.policy = nl80211_policy,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = NL80211_FLAG_NEED_NETDEV |
+				  NL80211_FLAG_NEED_RTNL,
+	},
+	{
+		.cmd = NL80211_CMD_UPDATE_FT_IES,
+		.doit = nl80211_update_ft_ies,
+		.policy = nl80211_policy,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
+				  NL80211_FLAG_NEED_RTNL,
+	},
 
 };
 
@@ -7100,9 +7403,9 @@ void nl80211_send_sched_scan(struct cfg80211_registered_device *rdev,
 }
 
 /*
- * This can happen on global regulatory changes or device specific settings
- * based on custom world regulatory domains.
- */
+ *  * This can happen on global regulatory changes or device specific settings
+ *   * based on custom world regulatory domains.
+ *    */
 void nl80211_send_reg_change_event(struct regulatory_request *request)
 {
 	struct sk_buff *msg;
@@ -7526,9 +7829,9 @@ void nl80211_send_beacon_hint_event(struct wiphy *wiphy,
 	}
 
 	/*
-	 * Since we are applying the beacon hint to a wiphy we know its
-	 * wiphy_idx is valid
-	 */
+ * 	 * Since we are applying the beacon hint to a wiphy we know its
+ * 	 	 * wiphy_idx is valid
+ * 	 	 	 */
 	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, get_wiphy_idx(wiphy));
 
 	/* Before */
@@ -7791,7 +8094,8 @@ void nl80211_send_mgmt_tx_status(struct cfg80211_registered_device *rdev,
 
 	genlmsg_end(msg, hdr);
 
-	genlmsg_multicast(msg, 0, nl80211_mlme_mcgrp.id, gfp);
+	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), msg, 0,
+				nl80211_mlme_mcgrp.id, gfp);
 	return;
 
  nla_put_failure:
@@ -8051,6 +8355,50 @@ void cfg80211_report_obss_beacon(struct wiphy *wiphy,
 }
 EXPORT_SYMBOL(cfg80211_report_obss_beacon);
 
+void cfg80211_tdls_oper_request(struct net_device *dev, const u8 *peer,
+				enum nl80211_tdls_operation oper,
+				u16 reason_code, gfp_t gfp)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
+	struct sk_buff *msg;
+	void *hdr;
+	int err;
+
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, gfp);
+	if (!msg)
+		return;
+
+	hdr = nl80211hdr_put(msg, 0, 0, 0, NL80211_CMD_TDLS_OPER);
+	if (!hdr) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
+	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
+	    nla_put_u8(msg, NL80211_ATTR_TDLS_OPERATION, oper) ||
+	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, peer) ||
+	    (reason_code > 0 &&
+	     nla_put_u16(msg, NL80211_ATTR_REASON_CODE, reason_code)))
+		goto nla_put_failure;
+
+	err = genlmsg_end(msg, hdr);
+	if (err < 0) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), msg, 0,
+				nl80211_mlme_mcgrp.id, gfp);
+	return;
+
+ nla_put_failure:
+	genlmsg_cancel(msg, hdr);
+	nlmsg_free(msg);
+}
+EXPORT_SYMBOL(cfg80211_tdls_oper_request);
+
 static int nl80211_netlink_notify(struct notifier_block * nb,
 				  unsigned long state,
 				  void *_notify)
@@ -8079,6 +8427,60 @@ static int nl80211_netlink_notify(struct notifier_block * nb,
 static struct notifier_block nl80211_netlink_notifier = {
 	.notifier_call = nl80211_netlink_notify,
 };
+
+void cfg80211_ft_event(struct net_device *netdev,
+		       struct cfg80211_ft_event_params *ft_event)
+{
+	struct wiphy *wiphy = netdev->ieee80211_ptr->wiphy;
+	struct cfg80211_registered_device *rdev = wiphy_to_dev(wiphy);
+	struct sk_buff *msg;
+	void *hdr;
+	int err;
+
+	if (!ft_event->target_ap)
+		return;
+
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg)
+		return;
+
+	hdr = nl80211hdr_put(msg, 0, 0, 0, NL80211_CMD_FT_EVENT);
+	if (!hdr) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+	nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+	nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, ft_event->target_ap);
+	if (ft_event->ies)
+		nla_put(msg, NL80211_ATTR_IE, ft_event->ies_len, ft_event->ies);
+	if (ft_event->ric_ies)
+		nla_put(msg, NL80211_ATTR_IE_RIC, ft_event->ric_ies_len,
+			ft_event->ric_ies);
+
+	err = genlmsg_end(msg, hdr);
+	if (err < 0) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), msg, 0,
+				nl80211_mlme_mcgrp.id, GFP_KERNEL);
+}
+EXPORT_SYMBOL(cfg80211_ft_event);
+
+
+void cfg80211_ap_stopped(struct net_device *netdev, gfp_t gfp)
+{
+	struct wireless_dev *wdev = netdev->ieee80211_ptr;
+	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
+
+	nl80211_send_mlme_event(rdev, netdev, NULL, 0,
+				NL80211_CMD_STOP_AP, gfp);
+}
+EXPORT_SYMBOL(cfg80211_ap_stopped);
+
 
 /* initialisation/exit functions */
 

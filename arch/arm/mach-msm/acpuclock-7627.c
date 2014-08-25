@@ -32,6 +32,7 @@
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include <mach/clk-provider.h>
 #include <mach/socinfo.h>
 #include <asm/mach-types.h>
 #include <asm/cpu.h>
@@ -85,12 +86,10 @@ static struct acpu_clk_src pll_clk[ACPU_PLL_END] = {
 };
 
 static struct pll_config pll4_cfg_tbl[] = {
-	[0] = {  36, 1, 2 }, /*  700.8 MHz */
-	[1] = {  52, 1, 2 }, /* 1008 MHz */
-	[2] = {  63, 0, 1 }, /* 1209.6 MHz */
-	[3] = {  73, 0, 1 }, /* 1401.6 MHz */
-	[4] = {  60, 0, 1 }, /* 1152 MHz */
-	[5] = {  57, 1, 2 }, /* 1104 MHz */
+	{  36, 1, 2 }, /*  700.8 MHz */
+	{  52, 1, 2 }, /* 1008 MHz */
+	{  63, 0, 1 }, /* 1209.6 MHz */
+	{  73, 0, 1 }, /* 1401.6 MHz */
 };
 
 struct clock_state {
@@ -200,6 +199,15 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_800[] = {
 	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
 	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 160000 },
 	{ 1, 800000, ACPU_PLL_4, 6, 0, 100000, 3, 7, 200000 },
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 7, 200000},
+#ifdef CONFIG_MSM7X27A_OVERCLOCK
+	{ 1, 1056000, ACPU_PLL_2,  2,  0, 132000,   3,  7, 200000 },
+	{ 1, 1113600, ACPU_PLL_2,  2,  0, 139200,   3,  7, 200000 },
+	{ 1, 1152000, ACPU_PLL_2,  2,  0, 144000,   3,  7, 200000 },
+	{ 1, 1190400, ACPU_PLL_2,  2,  0, 148800,   3,  7, 200000 },
+	{ 1, 1228800, ACPU_PLL_2,  2,  0, 153600,   3,  7, 200000 },
+	{ 1, 1267200, ACPU_PLL_2,  2,  0, 158400,   3,  7, 200000 },
+#endif
 	{ 0 }
 };
 
@@ -215,6 +223,15 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_800[] = {
 	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 120000 },
 	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 160000 },
 	{ 1, 800000, ACPU_PLL_4, 6, 0, 100000, 3, 7, 200000 },
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 7, 200000},
+#ifdef CONFIG_MSM7X27A_OVERCLOCK
+	{ 1, 1056000, ACPU_PLL_2,  2,  0, 132000,   3,  7, 200000 },
+	{ 1, 1113600, ACPU_PLL_2,  2,  0, 139200,   3,  7, 200000 },
+	{ 1, 1152000, ACPU_PLL_2,  2,  0, 144000,   3,  7, 200000 },
+	{ 1, 1190400, ACPU_PLL_2,  2,  0, 148800,   3,  7, 200000 },
+	{ 1, 1228800, ACPU_PLL_2,  2,  0, 153600,   3,  7, 200000 },
+	{ 1, 1267200, ACPU_PLL_2,  2,  0, 158400,   3,  7, 200000 },
+#endif
 	{ 0 }
 };
 
@@ -230,7 +247,15 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1008[] = {
 	{ 0, 504000, ACPU_PLL_4, 6, 1, 63000, 3, 6, 160000 },
 	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 160000 },
 	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 7, 200000},
-	{ 0 }
+#ifdef CONFIG_MSM7X27A_OVERCLOCK
+	{ 1, 1056000, ACPU_PLL_2,  2,  0, 132000,   3,  7, 200000 },
+	{ 1, 1113600, ACPU_PLL_2,  2,  0, 139200,   3,  7, 200000 },
+	{ 1, 1152000, ACPU_PLL_2,  2,  0, 144000,   3,  7, 200000 },
+	{ 1, 1190400, ACPU_PLL_2,  2,  0, 148800,   3,  7, 200000 },
+	{ 1, 1228800, ACPU_PLL_2,  2,  0, 153600,   3,  7, 200000 },
+	{ 1, 1267200, ACPU_PLL_2,  2,  0, 158400,   3,  7, 200000 },
+#endif
+	{ 0}
 };
 
 /* 7627aa PLL4 @ 1008MHz with CDMA capable modem */
@@ -245,6 +270,14 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008[] = {
 	{ 0, 504000, ACPU_PLL_4, 6, 1, 63000, 3, 6, 160000 },
 	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 160000 },
 	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 7, 200000},
+#ifdef CONFIG_MSM7X27A_OVERCLOCK
+	{ 1, 1056000, ACPU_PLL_2,  2,  0, 132000,   3,  7, 200000 },
+	{ 1, 1113600, ACPU_PLL_2,  2,  0, 139200,   3,  7, 200000 },
+	{ 1, 1152000, ACPU_PLL_2,  2,  0, 144000,   3,  7, 200000 },
+	{ 1, 1190400, ACPU_PLL_2,  2,  0, 148800,   3,  7, 200000 },
+	{ 1, 1228800, ACPU_PLL_2,  2,  0, 153600,   3,  7, 200000 },
+	{ 1, 1267200, ACPU_PLL_2,  2,  0, 158400,   3,  7, 200000 },
+#endif
 	{ 0 }
 };
 
@@ -268,8 +301,8 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1209[] = {
 static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1209[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
 	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
-	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 1, 49152 },
-	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 1, 98304 },
+	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2, 49152 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 3, 98304 },
 	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
 	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
 	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
@@ -300,8 +333,8 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1401[] = {
 static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1401[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
 	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
-	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 1, 49152 },
-	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 1, 98304 },
+	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2, 49152 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 3, 98304 },
 	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
 	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
 	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
@@ -312,7 +345,7 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1401[] = {
 	{ 0 }
 };
 
-/* 8625 PLL4 @ 1008MHz with GSM capable modem */
+/* 8625v2.0 PLL4 @ 1008MHz with GSM capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1008_2p0[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
 	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 0, 61440 },
@@ -327,12 +360,12 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1008_2p0[] = {
 	{ 0 }
 };
 
-/* 8625 PLL4 @ 1008MHz with CDMA capable modem */
+/* 8625v2.0 PLL4 @ 1008MHz with CDMA capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
 	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
-	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 1, 49152 },
-	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 1, 98304 },
+	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2, 49152 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 3, 98304 },
 	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
 	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
 	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
@@ -341,16 +374,31 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[] = {
 	{ 0 }
 };
 
-/* 8625 PLL4 @ 1104MHz with GSM capable modem with v2.0 plan */
-static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1104[] = {
+/* 8625 PLL4 @ 1401.6MHz with GSM capable modem */
+static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1401[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
-	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 1, 61440 },
-	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
-	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
-	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
-	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
-	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
-	{ 1, 1104000, ACPU_PLL_4, 6, 0, 151200, 3, 6, 200000, &pll4_cfg_tbl[5]},
+	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 1, 61440 },
+	{ 1, 122880, ACPU_PLL_1, 1, 1,  15360, 3, 2, 61440 },
+	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 3, 61440 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
+	{ 0, 576000, ACPU_PLL_4, 6, 1, 72000, 3, 6, 160000 },
+	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 160000 },
+	{ 1, 1152000, ACPU_PLL_4, 6, 0, 144000, 3, 7, 200000},
+	{ 0 }
+};
+
+/* 8625 PLL4 @ 1401.6MHz with CDMA capable modem */
+static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1401[] = {
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
+	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
+	{ 1, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 2, 49152 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 3, 98304 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 4, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 5, 122880 },
+	{ 0, 576000, ACPU_PLL_4, 6, 1, 72000, 3, 6, 160000 },
+	{ 1, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 6, 160000 },
+	{ 1, 1152000, ACPU_PLL_4, 6, 0, 144000, 3, 7, 200000},
 	{ 0 }
 };
 
@@ -511,8 +559,6 @@ static struct pll_freq_tbl_map acpu_freq_tbl_list[] = {
 	PLL_CONFIG(960, 196, 1200, 1209),
 	PLL_CONFIG(960, 245, 1200, 1152),
 	PLL_CONFIG(960, 196, 1200, 1152),
-	PLL_CONFIG(960, 245, 1200, 1104),
-	PLL_CONFIG(960, 196, 1200, 1104),
 	PLL_CONFIG(960, 245, 1200, 1401),
 	PLL_CONFIG(960, 196, 1200, 1401),
 	{ 0, 0, 0, 0, 0 }
@@ -746,12 +792,11 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 				 */
 				clk_enable(pll_clk[backup_s->pll].clk);
 				acpuclk_set_div(backup_s);
-				update_jiffies(cpu, backup_s->lpj);
 			}
 			/* Make sure PLL4 is off before reprogramming */
 			if ((plls_enabled & (1 << tgt_s->pll))) {
 				clk_disable(pll_clk[tgt_s->pll].clk);
-				plls_enabled &= ~(1 << tgt_s->pll);
+				plls_enabled &= (0 << tgt_s->pll);
 			}
 			acpuclk_config_pll4(tgt_s->pll_rate);
 			pll_clk[tgt_s->pll].clk->rate = tgt_s->a11clk_khz*1000;
@@ -764,12 +809,10 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 				 */
 				clk_enable(pll_clk[backup_s->pll].clk);
 				acpuclk_set_div(backup_s);
-				update_jiffies(cpu, backup_s->lpj);
 			}
 		}
 
-		if ((tgt_s->pll != ACPU_PLL_TCXO) &&
-				!(plls_enabled & (1 << tgt_s->pll))) {
+		if (!(plls_enabled & (1 << tgt_s->pll))) {
 			rc = clk_enable(pll_clk[tgt_s->pll].clk);
 			if (rc < 0) {
 				pr_err("PLL%d enable failed (%d)\n",
@@ -781,7 +824,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 		acpuclk_set_div(tgt_s);
 		drv_state.current_speed = tgt_s;
 		/* Re-adjust lpj for the new clock speed. */
-		update_jiffies(cpu, tgt_s->lpj);
+		update_jiffies(cpu, cur_s->lpj);
 
 		/* Disable the backup PLL */
 		if ((delta > drv_state.max_speed_delta_khz)
@@ -1013,11 +1056,15 @@ static void __devinit select_freq_plan(void)
 
 	/*
 	 * 1008Mhz table selection based on the Lvalue of the PLL
-	 * is conflicting with the 7627AA 1GHz parts since 8625 chips
-	 * are using different clock plan based reprogramming method.
+	 * is conflicting with the 7627AA and 8625 v1.0 1GHz parts
+	 * since v2.0 8625 chips are using different clock plan based
+	 * reprogramming method.
 	 */
-	if (cpu_is_msm8625() &&	pll_mhz[ACPU_PLL_4] == 1008) {
-		if (pll_mhz[ACPU_PLL_1] == 245)
+	if (cpu_is_msm8625() &&
+		(SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) &&
+		pll_mhz[ACPU_PLL_4] == 1008) {
+
+		if (pll_mhz[ACPU_PLL_2] == 245)
 			acpu_freq_tbl =
 				pll0_960_pll1_245_pll2_1200_pll4_1008_2p0;
 		else
