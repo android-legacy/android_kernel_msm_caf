@@ -968,7 +968,7 @@ static struct platform_device this_device = {
 #define LCDC_PCLK	((LCDC_FB_XRES + LCDC_HBP + LCDC_HPW + LCDC_HFP) \
 			* (LCDC_FB_YRES + LCDC_VBP + LCDC_VPW + LCDC_VFP) * 60)
 #endif
-static int __init lcdc_trebon_panel_init(void)
+static int __devinit lcdc_trebon_panel_init(void)
 {
 	int ret;
 	struct msm_panel_info *pinfo;
