@@ -32,13 +32,13 @@
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include <mach/clk-provider.h>
 #include <mach/socinfo.h>
 #include <asm/mach-types.h>
 #include <asm/cpu.h>
 
 #include "smd_private.h"
 #include "acpuclock.h"
-#include "clock.h"
 
 #define A11S_CLK_CNTL_ADDR (MSM_CSR_BASE + 0x100)
 #define A11S_CLK_SEL_ADDR (MSM_CSR_BASE + 0x104)
@@ -780,12 +780,11 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 				 */
 				clk_enable(pll_clk[backup_s->pll].clk);
 				acpuclk_set_div(backup_s);
-				update_jiffies(cpu, backup_s->lpj);
 			}
 			/* Make sure PLL4 is off before reprogramming */
 			if ((plls_enabled & (1 << tgt_s->pll))) {
 				clk_disable(pll_clk[tgt_s->pll].clk);
-				plls_enabled &= ~(1 << tgt_s->pll);
+				plls_enabled &= (0 << tgt_s->pll);
 			}
 			acpuclk_config_pll4(tgt_s->pll_rate);
 			pll_clk[tgt_s->pll].clk->rate = tgt_s->a11clk_khz*1000;
@@ -798,12 +797,10 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 				 */
 				clk_enable(pll_clk[backup_s->pll].clk);
 				acpuclk_set_div(backup_s);
-				update_jiffies(cpu, backup_s->lpj);
 			}
 		}
 
-		if ((tgt_s->pll != ACPU_PLL_TCXO) &&
-				!(plls_enabled & (1 << tgt_s->pll))) {
+		if (!(plls_enabled & (1 << tgt_s->pll))) {
 			rc = clk_enable(pll_clk[tgt_s->pll].clk);
 			if (rc < 0) {
 				pr_err("PLL%d enable failed (%d)\n",
@@ -1051,7 +1048,7 @@ static void __devinit select_freq_plan(void)
 	 * are using different clock plan based reprogramming method.
 	 */
 	if (cpu_is_msm8625() &&	pll_mhz[ACPU_PLL_4] == 1008) {
-		if (pll_mhz[ACPU_PLL_1] == 245)
+		if (pll_mhz[ACPU_PLL_2] == 245)
 			acpu_freq_tbl =
 				pll0_960_pll1_245_pll2_1200_pll4_1008_2p0;
 		else
