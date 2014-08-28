@@ -971,26 +971,31 @@ static void msm_fb_scale_bl(__u32 bl_max, __u32 *bl_lvl)
 /*must call this function from within mfd->sem*/
 void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 {
-	struct msm_fb_panel_data *pdata;
-	__u32 temp = bkl_lvl;
+        struct msm_fb_panel_data *pdata;
+        __u32 temp = bkl_lvl;
 
-	unset_bl_level = bkl_lvl;
+        if (!mfd->panel_power_on || !bl_updated) {
+                mfd->bl_level = bkl_lvl;
+                unset_bl_level = bkl_lvl;
+                return;
+        } else {
+                unset_bl_level = 0;
+        }
 
-	if (!mfd->panel_power_on || !bl_updated)
-		return;
+        pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
-	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
-
-	if ((pdata) && (pdata->set_backlight)) {
-		msm_fb_scale_bl(mfd->panel_info.bl_max, &temp);
-		if (bl_level_old == temp) {
-			return;
-		}
-		mfd->bl_level = temp;
-		pdata->set_backlight(mfd);
-		mfd->bl_level = bkl_lvl;
-		bl_level_old = temp;
-	}
+        if ((pdata) && (pdata->set_backlight)) {
+                down(&mfd->sem);
+                if (bl_level_old == temp) {
+                        up(&mfd->sem);
+                        return;
+                }
+                mfd->bl_level = temp;
+                pdata->set_backlight(mfd);
+                mfd->bl_level = bkl_lvl;
+                bl_level_old = temp;
+                up(&mfd->sem);
+        }
 }
 
 static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
@@ -2113,6 +2118,7 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	struct mdp_dirty_region dirty;
 	struct mdp_dirty_region *dirtyPtr = NULL;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+        struct msm_fb_panel_data *pdata;
 
 	/*
 	 * If framebuffer is 2, io pen display is not allowed.
@@ -2206,6 +2212,22 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 		pr_err("%s: unmap secure res failed\n", __func__);
 #endif
 	up(&msm_fb_pan_sem);
+
+#ifdef CONFIG_MACH_JENA
+        if (unset_bl_level && !bl_updated) {
+                pdata = (struct msm_fb_panel_data *)mfd->pdev->
+                        dev.platform_data;
+                if ((pdata) && (pdata->set_backlight)) {
+                        msleep(200);
+                        down(&mfd->sem);
+                        mfd->bl_level = unset_bl_level;
+                        pdata->set_backlight(mfd);
+                        bl_level_old = unset_bl_level;
+                        up(&mfd->sem);
+                        bl_updated = 1;
+                }
+        }
+#endif
 
 	if (!bl_updated)
 		schedule_delayed_work(&mfd->backlight_worker,
@@ -3426,6 +3448,21 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 
 	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
 		mdp_free_splash_buffer(mfd);
+
+#ifdef CONFIG_MACH_JENA
+        if (unset_bl_level && !bl_updated) {
+                pdata = (struct msm_fb_panel_data *)mfd->pdev->
+                        dev.platform_data;
+                if ((pdata) && (pdata->set_backlight)) {
+                        down(&mfd->sem);
+                        mfd->bl_level = unset_bl_level;
+                        pdata->set_backlight(mfd);
+                        bl_level_old = unset_bl_level;
+                        up(&mfd->sem);
+                        bl_updated = 1;
+                }
+        }
+#endif
 
 	return ret;
 }
