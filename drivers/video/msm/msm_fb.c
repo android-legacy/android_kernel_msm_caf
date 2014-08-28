@@ -2080,21 +2080,15 @@ static void bl_workqueue_handler(struct work_struct *work)
 	struct msm_fb_panel_data *pdata = mfd->pdev->dev.platform_data;
 	__u32 temp = unset_bl_level;
 
-	down(&mfd->sem);
 	if ((pdata) && (pdata->set_backlight) && (!bl_updated)
 					&& (mfd->panel_power_on)) {
 
-#ifdef CONFIG_MACH_JENA
-		msleep(200);
-#endif
-		msm_fb_scale_bl(mfd->panel_info.bl_max, &temp);
-		mfd->bl_level = temp;
-		pdata->set_backlight(mfd);
+	        down(&mfd->sem);
 		bl_level_old = unset_bl_level;
 		mfd->bl_level = unset_bl_level;
+		up(&mfd->sem);
 		bl_updated = 1;
 	}
-	up(&mfd->sem);
 }
 
 static int msm_fb_pan_display(struct fb_var_screeninfo *var,
@@ -2208,6 +2202,9 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	up(&msm_fb_pan_sem);
 
 	if (!bl_updated)
+#ifdef CONFIG_MACH_JENA
+		msleep(200);
+#endif
 		schedule_delayed_work(&mfd->backlight_worker,
 					backlight_duration);
 
