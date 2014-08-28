@@ -214,7 +214,7 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 static struct led_classdev backlight_led = {
 	.name		= "lcd-backlight",
-	.brightness	= (MAX_BACKLIGHT_BRIGHTNESS * .75),
+	.brightness	= MAX_BACKLIGHT_BRIGHTNESS,
 	.brightness_set	= msm_fb_set_bl_brightness,
 };
 #endif
@@ -485,10 +485,8 @@ static int msm_fb_probe(struct platform_device *pdev)
 	if (!lcd_backlight_registered) {
 		if (led_classdev_register(&pdev->dev, &backlight_led))
 			printk(KERN_ERR "led_classdev_register failed\n");
-		else {
-			msm_fb_set_bl_brightness(&backlight_led, backlight_led.brightness);
+			else
 			lcd_backlight_registered = 1;
-		}
 	}
 #endif
 
@@ -974,16 +972,20 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 	struct msm_fb_panel_data *pdata;
 	__u32 temp = bkl_lvl;
 
-	unset_bl_level = bkl_lvl;
-
-	if (!mfd->panel_power_on || !bl_updated)
+	if (!mfd->panel_power_on || !bl_updated) {
+		mfd->bl_level = bkl_lvl;
+		unset_bl_level = bkl_lvl;
 		return;
+	} else {
+		unset_bl_level = 0;
+	}
 
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
 	if ((pdata) && (pdata->set_backlight)) {
-		msm_fb_scale_bl(mfd->panel_info.bl_max, &temp);
+		down(&mfd->sem);
 		if (bl_level_old == temp) {
+			up(&mfd->sem);
 			return;
 		}
 		mfd->bl_level = temp;
@@ -1009,11 +1011,10 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on) {
+			msleep(16);
 			ret = pdata->on(mfd->pdev);
 			if (ret == 0) {
-				down(&mfd->sem);
 				mfd->panel_power_on = TRUE;
-				up(&mfd->sem);
 				mfd->panel_driver_on = mfd->op_enable;
 			}
 		}
@@ -1029,8 +1030,8 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 
 			mfd->op_enable = FALSE;
 			curr_pwr_state = mfd->panel_power_on;
-			down(&mfd->sem);
 			mfd->panel_power_on = FALSE;
+			bl_updated = 0;
 			if (mfd->fbi->node == 0)
 				bl_updated = 0;
 			up(&mfd->sem);
@@ -1153,12 +1154,6 @@ static int msm_fb_blank(int blank_mode, struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
-	if (blank_mode == FB_BLANK_POWERDOWN) {
-		struct fb_event event;
-		event.info = info;
-		event.data = &blank_mode;
-		fb_notifier_call_chain(FB_EVENT_BLANK, &event);
-	}
 	msm_fb_pan_idle(mfd);
 	if (mfd->op_enable == 0) {
 		if (blank_mode == FB_BLANK_UNBLANK) {
@@ -1200,20 +1195,23 @@ static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma)
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
-	if (!start)
-		return -EINVAL;
-
-	if ((vma->vm_end <= vma->vm_start) ||
-	    (off >= len) ||
-	    ((vma->vm_end - vma->vm_start) > (len - off)))
-		return -EINVAL;
+	if (off >= len) {
+		/* memory mapped io */
+		off -= len;
+		if (info->var.accel_flags) {
+			mutex_unlock(&info->lock);
+			return -EINVAL;
+		}
+		start = info->fix.mmio_start;
+		len = PAGE_ALIGN((start & ~PAGE_MASK) + info->fix.mmio_len);
+	}
 
 	msm_fb_pan_idle(mfd);
 	/* Set VM flags. */
 	start &= PAGE_MASK;
-	off += start;
-	if (off < start)
+	if ((vma->vm_end - vma->vm_start + off) > len)
 		return -EINVAL;
+	off += start;
 
 	vma->vm_pgoff = off >> PAGE_SHIFT;
 	/* This is an IO map - tell maydump to skip this VMA */
@@ -2008,6 +2006,7 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct msm_fb_backup_type *fb_backup;
 	struct fb_var_screeninfo *var = &disp_commit->var;
+	struct msm_fb_panel_data *pdata;
 	u32 wait_for_finish = disp_commit->wait_for_finish;
 	int ret = 0;
 	if (disp_commit->flags &
@@ -2110,6 +2109,7 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	struct mdp_dirty_region dirty;
 	struct mdp_dirty_region *dirtyPtr = NULL;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct msm_fb_panel_data *pdata;
 
 	/*
 	 * If framebuffer is 2, io pen display is not allowed.
@@ -2186,7 +2186,6 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 		mdp_set_dma_pan_info(info, NULL, TRUE);
 		if (msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable)) {
 			pr_err("%s: can't turn on display!\n", __func__);
-			up(&msm_fb_pan_sem);
 			msm_fb_release_timeline(mfd);
 			return -EINVAL;
 		}
@@ -2203,6 +2202,19 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 		pr_err("%s: unmap secure res failed\n", __func__);
 #endif
 	up(&msm_fb_pan_sem);
+	if (unset_bl_level && !bl_updated) {
+		pdata = (struct msm_fb_panel_data *)mfd->pdev->
+			dev.platform_data;
+		if ((pdata) && (pdata->set_backlight)) {
+			msleep(200);
+			down(&mfd->sem);
+			mfd->bl_level = unset_bl_level;
+			pdata->set_backlight(mfd);
+			bl_level_old = unset_bl_level;
+			up(&mfd->sem);
+			bl_updated = 1;
+		}
+	}
 
 	if (!bl_updated)
 		schedule_delayed_work(&mfd->backlight_worker,
@@ -3421,6 +3433,19 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 
 	ret = mdp4_overlay_play(info, &req);
 
+	if (unset_bl_level && !bl_updated) {
+		pdata = (struct msm_fb_panel_data *)mfd->pdev->
+			dev.platform_data;
+		if ((pdata) && (pdata->set_backlight)) {
+			down(&mfd->sem);
+			mfd->bl_level = unset_bl_level;
+			pdata->set_backlight(mfd);
+			bl_level_old = unset_bl_level;
+			up(&mfd->sem);
+			bl_updated = 1;
+		}
+	}
+
 	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
 		mdp_free_splash_buffer(mfd);
 
@@ -3717,9 +3742,7 @@ static int msmfb_notify_update(struct fb_info *info, void __user *argp)
 		ret = wait_for_completion_interruptible_timeout(
 		&mfd->msmfb_no_update_notify, 4*HZ);
 	}
-	if (ret == 0)
-		ret = -ETIMEDOUT;
-	return (ret > 0) ? 0 : ret;
+	return (ret > 0) ? 0 : -1;
 }
 
 static int msmfb_handle_pp_ioctl(struct msm_fb_data_type *mfd,
