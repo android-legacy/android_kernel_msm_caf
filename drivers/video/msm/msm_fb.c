@@ -1,20 +1,20 @@
 /*
- * drivers/video/msm/msm_fb.c
- *
- * Core MSM framebuffer driver.
- *
- * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+ *  * drivers/video/msm/msm_fb.c
+ *   *
+ *    * Core MSM framebuffer driver.
+ *     *
+ *      * Copyright (C) 2007 Google Incorporated
+ *       * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+ *        *
+ *         * This software is licensed under the terms of the GNU General Public
+ *          * License version 2, as published by the Free Software Foundation, and
+ *           * may be copied, distributed, and modified under those terms.
+ *            *
+ *             * This program is distributed in the hope that it will be useful,
+ *              * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *               * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *                * GNU General Public License for more details.
+ *                 */
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -68,9 +68,9 @@ static unsigned char *fbram_phys;
 static int fbram_size;
 static boolean bf_supported;
 /* Set backlight on resume after 50 ms after first
- * pan display on the panel. This is to avoid panel specific
- * transients during resume.
- */
+ *  * pan display on the panel. This is to avoid panel specific
+ *   * transients during resume.
+ *    */
 unsigned long backlight_duration = (HZ/20);
 static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
@@ -195,8 +195,8 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	int bl_lvl;
 
 	/* This maps android backlight level 1 to 255 into
-	   driver backlight level bl_min to bl_max with rounding
-	   and maps backlight level 0 to 0. */
+ * 	   driver backlight level bl_min to bl_max with rounding
+ * 	   	   and maps backlight level 0 to 0. */
 	if (value <= 0)
 		bl_lvl = 0;
 	else if (value >= MAX_BACKLIGHT_BRIGHTNESS)
@@ -267,7 +267,7 @@ int msm_fb_detect_client(const char *name)
 		ret = msm_fb_pdata->detect_client(name);
 
 		/* if it's non mddi panel, we need to pre-scan
-		   mddi client to see if we can disable mddi host */
+ * 		   mddi client to see if we can disable mddi host */
 
 #ifdef CONFIG_FB_MSM_MDDI_AUTO_DETECT
 		if (!ret && msm_fb_pdata->mddi_prescan)
@@ -616,16 +616,16 @@ static int msm_fb_suspend_sub(struct msm_fb_data_type *mfd)
 		return 0;
 
 	/*
-	 * suspend this channel
-	 */
+ * 	 * suspend this channel
+ * 	 	 */
 	mfd->suspend.sw_refreshing_enable = mfd->sw_refreshing_enable;
 	mfd->suspend.op_enable = mfd->op_enable;
 
 	/*
-	 * For HDMI/DTV, panel needs not to be turned ON during resume
-	 * as power_ctrl will turn ON the HPD at resume which will turn
-	 * ON the panel in case the HDMI cable is still connected.
-	 */
+ * 	 * For HDMI/DTV, panel needs not to be turned ON during resume
+ * 	 	 * as power_ctrl will turn ON the HPD at resume which will turn
+ * 	 	 	 * ON the panel in case the HDMI cable is still connected.
+ * 	 	 	 	 */
 	if (mfd->panel_info.type == HDMI_PANEL ||
 	    mfd->panel_info.type == DTV_PANEL)
 		mfd->suspend.panel_power_on = false;
@@ -646,14 +646,14 @@ static int msm_fb_suspend_sub(struct msm_fb_data_type *mfd)
 		mfd->op_enable = FALSE;
 	}
 	/*
-	 * try to power down
-	 */
+ * 	 * try to power down
+ * 	 	 */
 	mdp_pipe_ctrl(MDP_MASTER_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	/*
-	 * detach display channel irq if there's any
-	 * or wait until vsync-resync completes
-	 */
+ * 	 * detach display channel irq if there's any
+ * 	 	 * or wait until vsync-resync completes
+ * 	 	 	 */
 	if ((mfd->dest == DISPLAY_LCD)) {
 		if (mfd->panel_info.lcd.vsync_enable) {
 			if (mfd->panel_info.lcd.hw_vsync_mode) {
@@ -711,7 +711,7 @@ static int msm_fb_resume_sub(struct msm_fb_data_type *mfd)
 static int msm_fb_resume(struct platform_device *pdev)
 {
 	/* This resume function is called when interrupt is enabled.
-	 */
+ * 	 */
 	int ret = 0;
 	struct msm_fb_data_type *mfd;
 
@@ -864,9 +864,9 @@ static void msmfb_early_suspend(struct early_suspend *h)
 	msm_fb_pan_idle(mfd);
 #if defined(CONFIG_FB_MSM_MDP303)
 	/*
-	* For MDP with overlay, set framebuffer with black pixels
-	* to show black screen on HDMI.
-	*/
+ * 	* For MDP with overlay, set framebuffer with black pixels
+ * 		* to show black screen on HDMI.
+ * 			*/
 	struct fb_info *fbi = mfd->fbi;
 	switch (mfd->fbi->var.bits_per_pixel) {
 	case 32:
@@ -974,16 +974,20 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 	struct msm_fb_panel_data *pdata;
 	__u32 temp = bkl_lvl;
 
-	unset_bl_level = bkl_lvl;
-
-	if (!mfd->panel_power_on || !bl_updated)
+	if (!mfd->panel_power_on || !bl_updated) {
+		mfd->bl_level = bkl_lvl;
+		unset_bl_level = bkl_lvl;
 		return;
+	} else {
+		unset_bl_level = 0;
+	}
 
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
 	if ((pdata) && (pdata->set_backlight)) {
-		msm_fb_scale_bl(mfd->panel_info.bl_max, &temp);
+		down(&mfd->sem);
 		if (bl_level_old == temp) {
+			up(&mfd->sem);
 			return;
 		}
 		mfd->bl_level = temp;
@@ -1077,7 +1081,7 @@ int calc_fb_offset(struct msm_fb_data_type *mfd, struct fb_info *fbi, int bpp)
 	if (fbi->var.yoffset < yres) {
 		offset = (fbi->var.xoffset * bpp);
 				/* iBuf->buf +=	fbi->var.xoffset * bpp + 0 *
-				yres * fbi->fix.line_length; */
+ * 				yres * fbi->fix.line_length; */
 	} else if (fbi->var.yoffset >= yres && fbi->var.yoffset < 2 * yres) {
 		offset = (fbi->var.xoffset * bpp + yres *
 		fbi->fix.line_length + PAGE_SIZE - remainder);
@@ -1164,7 +1168,7 @@ static int msm_fb_blank(int blank_mode, struct fb_info *info)
 		if (blank_mode == FB_BLANK_UNBLANK) {
 			mfd->suspend.panel_power_on = TRUE;
 			/* if unblank is called when system is in suspend,
-			wait for the system to resume */
+ * 			wait for the system to resume */
 			while (mfd->suspend.op_suspend) {
 				pr_debug("waiting for system to resume\n");
 				msleep(20);
@@ -1188,10 +1192,10 @@ static int msm_fb_set_lut(struct fb_cmap *cmap, struct fb_info *info)
 }
 
 /*
- * Custom Framebuffer mmap() function for MSM driver.
- * Differs from standard mmap() function by allowing for customized
- * page-protection.
- */
+ *  * Custom Framebuffer mmap() function for MSM driver.
+ *   * Differs from standard mmap() function by allowing for customized
+ *    * page-protection.
+ *     */
 static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma)
 {
 	/* Get frame buffer memory range. */
@@ -1267,9 +1271,9 @@ static struct fb_ops msm_fb_ops = {
 static __u32 msm_fb_line_length(__u32 fb_index, __u32 xres, int bpp)
 {
 	/* The adreno GPU hardware requires that the pitch be aligned to
-	   32 pixels for color buffers, so for the cases where the GPU
-	   is writing directly to fb0, the framebuffer pitch
-	   also needs to be 32 pixel aligned */
+ * 	   32 pixels for color buffers, so for the cases where the GPU
+ * 	   	   is writing directly to fb0, the framebuffer pitch
+ * 	   	   	   also needs to be 32 pixel aligned */
 
 	if (fb_index == 0)
 		return ALIGN(xres, 32) * bpp;
@@ -1290,8 +1294,8 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	int remainder, remainder_mode2;
 
 	/*
-	 * fb info initialization
-	 */
+ * 	 * fb info initialization
+ * 	 	 */
 	fix = &fbi->fix;
 	var = &fbi->var;
 
@@ -1426,7 +1430,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 					      bpp);
 
 	/* Make sure all buffers can be addressed on a page boundary by an x
-	 * and y offset */
+ * 	 * and y offset */
 
 	remainder = (fix->line_length * panel_info->yres) & (PAGE_SIZE - 1);
 					/* PAGE_SIZE is a power of 2 */
@@ -1438,9 +1442,9 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		remainder_mode2 = PAGE_SIZE;
 
 	/*
-	 * calculate smem_len based on max size of two supplied modes.
-	 * Only fb0 has mem. fb1 and fb2 don't have mem.
-	 */
+ * 	 * calculate smem_len based on max size of two supplied modes.
+ * 	 	 * Only fb0 has mem. fb1 and fb2 don't have mem.
+ * 	 	 	 */
 	if (!bf_supported || mfd->index == 0)
 		fix->smem_len = MAX((msm_fb_line_length(mfd->index,
 							panel_info->xres,
@@ -1474,8 +1478,8 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	var->reserved[3] = mdp_get_panel_framerate(mfd);
 
 		/*
-		 * id field for fb app
-		 */
+ * 		 * id field for fb app
+ * 		 		 */
 	id = (int *)&mfd->panel;
 
 	switch (mdp_rev) {
@@ -1672,9 +1676,9 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 #endif
 #if !defined(CONFIG_TARGET_LOCALE_EUR_VODA)
 	/*
-	*Check the LPM Mode
-	*If the value of charging_boot is '1', that is LPM Mode.
-	*/
+ * 	*Check the LPM Mode
+ * 		*If the value of charging_boot is '1', that is LPM Mode.
+ * 			*/
 	if (charging_boot == 1)
 		draw_rgb888_black_screen();
 #endif
@@ -2020,14 +2024,14 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 			return -EPERM;
 	} else {
 	        /*
-                WFD panel info was not getting updated,
-		in case of resolution other than 1280x720
-                */
+ *                 WFD panel info was not getting updated,
+ *                 		in case of resolution other than 1280x720
+ *                 		                */
                 mfd->var_xres = info->var.xres;
                 mfd->var_yres = info->var.yres;
 		/*
-		 * If framebuffer is 2, io pan display is not allowed.
-		 */
+ * 		 * If framebuffer is 2, io pan display is not allowed.
+ * 		 		 */
 		if (bf_supported && info->node == 2) {
 			pr_err("%s: no pan display for fb%d!",
 				   __func__, info->node);
@@ -2115,8 +2119,8 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
 	/*
-	 * If framebuffer is 2, io pen display is not allowed.
-	 */
+ * 	 * If framebuffer is 2, io pen display is not allowed.
+ * 	 	 */
 	if (bf_supported && info->node == 2) {
 		pr_err("%s: no pan display for fb%d!",
 		       __func__, info->node);
@@ -2296,7 +2300,7 @@ static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 
 	case 32:
 		/* Figure out if the user meant RGBA or ARGB
-		   and verify the position of the RGB components */
+ * 		   and verify the position of the RGB components */
 
 		if (var->transp.offset == 24) {
 			if ((var->blue.offset != 0) ||
@@ -2964,12 +2968,12 @@ static inline void msm_fb_dma_barrier_for_rect(struct fb_info *info,
 			)
 {
 	/*
-	 * Compute the start and end addresses of the rectangles.
-	 * NOTE: As currently implemented, the data between
-	 *       the end of one row and the start of the next is
-	 *       included in the address range rather than
-	 *       doing multiple calls for each row.
-	 */
+ * 	 * Compute the start and end addresses of the rectangles.
+ * 	 	 * NOTE: As currently implemented, the data between
+ * 	 	 	 *       the end of one row and the start of the next is
+ * 	 	 	 	 *       included in the address range rather than
+ * 	 	 	 	 	 *       doing multiple calls for each row.
+ * 	 	 	 	 	 	 */
 	unsigned long start;
 	size_t size;
 	char * const pmem_start = info->screen_base;
@@ -3025,13 +3029,13 @@ static inline void msm_dma_fromdevice_wb_post(void *start, size_t size)
 }
 
 /*
- * Do the write barriers required to guarantee data is committed to RAM
- * (from CPU cache or internal buffers) before a DMA operation starts.
- * NOTE: As currently implemented, the data between
- *       the end of one row and the start of the next is
- *       included in the address range rather than
- *       doing multiple calls for each row.
-*/
+ *  * Do the write barriers required to guarantee data is committed to RAM
+ *   * (from CPU cache or internal buffers) before a DMA operation starts.
+ *    * NOTE: As currently implemented, the data between
+ *     *       the end of one row and the start of the next is
+ *      *       included in the address range rather than
+ *       *       doing multiple calls for each row.
+ *       */
 static void msm_fb_ensure_memory_coherency_before_dma(struct fb_info *info,
 		struct mdp_blit_req *req_list,
 		int req_list_count)
@@ -3040,23 +3044,23 @@ static void msm_fb_ensure_memory_coherency_before_dma(struct fb_info *info,
 	int i;
 
 	/*
-	 * Normally, do the requested barriers for each address
-	 * range that corresponds to a rectangle.
-	 *
-	 * But if at least one write barrier is requested for data
-	 * going to or from the device but no address range is
-	 * needed for that barrier, then do the barrier, but do it
-	 * only once, no matter how many requests there are.
-	 */
+ * 	 * Normally, do the requested barriers for each address
+ * 	 	 * range that corresponds to a rectangle.
+ * 	 	 	 *
+ * 	 	 	 	 * But if at least one write barrier is requested for data
+ * 	 	 	 	 	 * going to or from the device but no address range is
+ * 	 	 	 	 	 	 * needed for that barrier, then do the barrier, but do it
+ * 	 	 	 	 	 	 	 * only once, no matter how many requests there are.
+ * 	 	 	 	 	 	 	 	 */
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	switch (mfd->mdp_fb_page_protection)	{
 	default:
 	case MDP_FB_PAGE_PROTECTION_NONCACHED:
 	case MDP_FB_PAGE_PROTECTION_WRITECOMBINE:
 		/*
-		 * The following barrier is only done at most once,
-		 * since further calls would be redundant.
-		 */
+ * 		 * The following barrier is only done at most once,
+ * 		 		 * since further calls would be redundant.
+ * 		 		 		 */
 		for (i = 0; i < req_list_count; i++) {
 			if (!(req_list[i].flags
 				& MDP_NO_DMA_BARRIER_START)) {
@@ -3068,9 +3072,9 @@ static void msm_fb_ensure_memory_coherency_before_dma(struct fb_info *info,
 
 	case MDP_FB_PAGE_PROTECTION_WRITETHROUGHCACHE:
 		/*
-		 * The following barrier is only done at most once,
-		 * since further calls would be redundant.
-		 */
+ * 		 * The following barrier is only done at most once,
+ * 		 		 * since further calls would be redundant.
+ * 		 		 		 */
 		for (i = 0; i < req_list_count; i++) {
 			if (!(req_list[i].flags
 				& MDP_NO_DMA_BARRIER_START)) {
@@ -3108,13 +3112,13 @@ static void msm_fb_ensure_memory_coherency_before_dma(struct fb_info *info,
 
 
 /*
- * Do the write barriers required to guarantee data will be re-read from RAM by
- * the CPU after a DMA operation ends.
- * NOTE: As currently implemented, the data between
- *       the end of one row and the start of the next is
- *       included in the address range rather than
- *       doing multiple calls for each row.
-*/
+ *  * Do the write barriers required to guarantee data will be re-read from RAM by
+ *   * the CPU after a DMA operation ends.
+ *    * NOTE: As currently implemented, the data between
+ *     *       the end of one row and the start of the next is
+ *      *       included in the address range rather than
+ *       *       doing multiple calls for each row.
+ *       */
 static void msm_fb_ensure_memory_coherency_after_dma(struct fb_info *info,
 		struct mdp_blit_req *req_list,
 		int req_list_count)
@@ -3128,9 +3132,9 @@ static void msm_fb_ensure_memory_coherency_after_dma(struct fb_info *info,
 	case MDP_FB_PAGE_PROTECTION_NONCACHED:
 	case MDP_FB_PAGE_PROTECTION_WRITECOMBINE:
 		/*
-		 * The following barrier is only done at most once,
-		 * since further calls would be redundant.
-		 */
+ * 		 * The following barrier is only done at most once,
+ * 		 		 * since further calls would be redundant.
+ * 		 		 		 */
 		for (i = 0; i < req_list_count; i++) {
 			if (!(req_list[i].flags
 				& MDP_NO_DMA_BARRIER_END)) {
@@ -3174,22 +3178,22 @@ static void msm_fb_ensure_memory_coherency_after_dma(struct fb_info *info,
 }
 
 /*
- * NOTE: The userspace issues blit operations in a sequence, the sequence
- * start with a operation marked START and ends in an operation marked
- * END. It is guranteed by the userspace that all the blit operations
- * between START and END are only within the regions of areas designated
- * by the START and END operations and that the userspace doesnt modify
- * those areas. Hence it would be enough to perform barrier/cache operations
- * only on the START and END operations.
- */
+ *  * NOTE: The userspace issues blit operations in a sequence, the sequence
+ *   * start with a operation marked START and ends in an operation marked
+ *    * END. It is guranteed by the userspace that all the blit operations
+ *     * between START and END are only within the regions of areas designated
+ *      * by the START and END operations and that the userspace doesnt modify
+ *       * those areas. Hence it would be enough to perform barrier/cache operations
+ *        * only on the START and END operations.
+ *         */
 static int msmfb_blit(struct fb_info *info, void __user *p)
 {
 	/*
-	 * CAUTION: The names of the struct types intentionally *DON'T* match
-	 * the names of the variables declared -- they appear to be swapped.
-	 * Read the code carefully and you should see that the variable names
-	 * make sense.
-	 */
+ * 	 * CAUTION: The names of the struct types intentionally *DON'T* match
+ * 	 	 * the names of the variables declared -- they appear to be swapped.
+ * 	 	 	 * Read the code carefully and you should see that the variable names
+ * 	 	 	 	 * make sense.
+ * 	 	 	 	 	 */
 	const int MAX_LIST_WINDOW = 16;
 	struct mdp_blit_req req_list[MAX_LIST_WINDOW];
 	struct mdp_blit_req_list req_list_header;
@@ -3210,13 +3214,13 @@ static int msmfb_blit(struct fb_info *info, void __user *p)
 		return -EINVAL;
 	while (count > 0) {
 		/*
-		 * Access the requests through a narrow window to decrease copy
-		 * overhead and make larger requests accessible to the
-		 * coherency management code.
-		 * NOTE: The window size is intended to be larger than the
-		 *       typical request size, but not require more than 2
-		 *       kbytes of stack storage.
-		 */
+ * 		 * Access the requests through a narrow window to decrease copy
+ * 		 		 * overhead and make larger requests accessible to the
+ * 		 		 		 * coherency management code.
+ * 		 		 		 		 * NOTE: The window size is intended to be larger than the
+ * 		 		 		 		 		 *       typical request size, but not require more than 2
+ * 		 		 		 		 		 		 *       kbytes of stack storage.
+ * 		 		 		 		 		 		 		 */
 		req_list_count = count;
 		if (req_list_count > MAX_LIST_WINDOW)
 			req_list_count = MAX_LIST_WINDOW;
@@ -3225,36 +3229,36 @@ static int msmfb_blit(struct fb_info *info, void __user *p)
 			return -EFAULT;
 
 		/*
-		 * Ensure that any data CPU may have previously written to
-		 * internal state (but not yet committed to memory) is
-		 * guaranteed to be committed to memory now.
-		 */
+ * 		 * Ensure that any data CPU may have previously written to
+ * 		 		 * internal state (but not yet committed to memory) is
+ * 		 		 		 * guaranteed to be committed to memory now.
+ * 		 		 		 		 */
 		msm_fb_ensure_memory_coherency_before_dma(info,
 				req_list, req_list_count);
 
 		/*
-		 * Do the blit DMA, if required -- returning early only if
-		 * there is a failure.
-		 */
+ * 		 * Do the blit DMA, if required -- returning early only if
+ * 		 		 * there is a failure.
+ * 		 		 		 */
 		for (i = 0; i < req_list_count; i++) {
 			if (!(req_list[i].flags & MDP_NO_BLIT)) {
 				/* Do the actual blit. */
 				int ret = mdp_blit(info, &(req_list[i]));
 
 				/*
-				 * Note that early returns don't guarantee
-				 * memory coherency.
-				 */
+ * 				 * Note that early returns don't guarantee
+ * 				 				 * memory coherency.
+ * 				 				 				 */
 				if (ret)
 					return ret;
 			}
 		}
 
 		/*
-		 * Ensure that CPU cache and other internal CPU state is
-		 * updated to reflect any change in memory modified by MDP blit
-		 * DMA.
-		 */
+ * 		 * Ensure that CPU cache and other internal CPU state is
+ * 		 		 * updated to reflect any change in memory modified by MDP blit
+ * 		 		 		 * DMA.
+ * 		 		 		 		 */
 		msm_fb_ensure_memory_coherency_after_dma(info,
 				req_list,
 				req_list_count);
@@ -4237,9 +4241,9 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 #else
 		/*
-		 * Don't allow caching until 7k DMA cache operations are
-		 * available.
-		 */
+ * 		 * Don't allow caching until 7k DMA cache operations are
+ * 		 		 * available.
+ * 		 		 		 */
 		ret = -EINVAL;
 #endif
 		break;
@@ -4371,10 +4375,10 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 
 #if defined MSM_FB_NUM
 	/*
-	 * over written fb_num which defined
-	 * at panel_info
-	 *
-	 */
+ * 	 * over written fb_num which defined
+ * 	 	 * at panel_info
+ * 	 	 	 *
+ * 	 	 	 	 */
 	if (type == HDMI_PANEL || type == DTV_PANEL ||
 		type == TV_PANEL || type == WRITEBACK_PANEL) {
 		if (hdmi_prim_display)
@@ -4398,8 +4402,8 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 		return NULL;
 	}
 	/*
-	 * alloc panel device data
-	 */
+ * 	 * alloc panel device data
+ * 	 	 */
 	this_dev = msm_fb_device_alloc(pdata, type, id);
 
 	if (!this_dev) {
@@ -4409,8 +4413,8 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 	}
 
 	/*
-	 * alloc framebuffer info + par data
-	 */
+ * 	 * alloc framebuffer info + par data
+ * 	 	 */
 	fbi = framebuffer_alloc(sizeof(struct msm_fb_data_type), NULL);
 	if (fbi == NULL) {
 		platform_device_put(this_dev);
@@ -4434,8 +4438,8 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 	fbi_list[fbi_list_index++] = fbi;
 
 	/*
-	 * set driver data
-	 */
+ * 	 * set driver data
+ * 	 	 */
 	platform_set_drvdata(this_dev, mfd);
 
 	if (platform_device_add(this_dev)) {
