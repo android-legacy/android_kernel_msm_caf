@@ -973,8 +973,17 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 {
 	struct msm_fb_panel_data *pdata;
 	__u32 temp = bkl_lvl;
-
+#ifdef CONFIG_MACH_JENA
+	if (!mfd->panel_power_on || !bl_updated) {
+		mfd->bl_level = bkl_lvl;
+		unset_bl_level = bkl_lvl;
+		return;
+	} else {
+		unset_bl_level = 0;
+	}
+#else
 	unset_bl_level = bkl_lvl;
+#endif
 
 	if (!mfd->panel_power_on || !bl_updated)
 		return;
@@ -1009,11 +1018,18 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on) {
+#ifdef CONFIG_MACH_JENA
+			msleep(16);
+#endif
 			ret = pdata->on(mfd->pdev);
 			if (ret == 0) {
+#ifndef CONFIG_MACH_JENA
 				down(&mfd->sem);
+#endif
 				mfd->panel_power_on = TRUE;
+#ifndef CONFIG_MACH_JENA
 				up(&mfd->sem);
+#endif
 				mfd->panel_driver_on = mfd->op_enable;
 			}
 		}
@@ -1044,7 +1060,7 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			if (info->screen_base)
 				memset((void *)info->screen_base, 0,
 				       info->fix.smem_len);
-
+			msleep(16);
 			ret = pdata->off(mfd->pdev);
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
@@ -2079,10 +2095,6 @@ static void bl_workqueue_handler(struct work_struct *work)
 	down(&mfd->sem);
 	if ((pdata) && (pdata->set_backlight) && (!bl_updated)
 					&& (mfd->panel_power_on)) {
-
-#ifdef CONFIG_MACH_JENA
-		msleep(200);
-#endif
 		msm_fb_scale_bl(mfd->panel_info.bl_max, &temp);
 		mfd->bl_level = temp;
 		pdata->set_backlight(mfd);
@@ -2205,6 +2217,9 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	up(&msm_fb_pan_sem);
 
 	if (!bl_updated)
+#ifdef CONFIG_MACH_JENA
+		msleep(200);
+#endif
 		schedule_delayed_work(&mfd->backlight_worker,
 					backlight_duration);
 
