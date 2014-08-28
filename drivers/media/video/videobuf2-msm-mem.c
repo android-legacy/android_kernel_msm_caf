@@ -1,21 +1,21 @@
 /* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
- *
- * Based on videobuf-dma-contig.c,
- * (c) 2008 Magnus Damm
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * helper functions for physically contiguous pmem capture buffers
- * The functions support contiguous memory allocations using pmem
- * kernel API.
- */
+ *  *
+ *   * Based on videobuf-dma-contig.c,
+ *    * (c) 2008 Magnus Damm
+ *     *
+ *      * This program is free software; you can redistribute it and/or modify
+ *       * it under the terms of the GNU General Public License version 2 and
+ *        * only version 2 as published by the Free Software Foundation.
+ *         *
+ *          * This program is distributed in the hope that it will be useful,
+ *           * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *            * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *             * GNU General Public License for more details.
+ *              *
+ *               * helper functions for physically contiguous pmem capture buffers
+ *                * The functions support contiguous memory allocations using pmem
+ *                 * kernel API.
+ *                  */
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -24,6 +24,7 @@
 #include <linux/pagemap.h>
 #include <linux/sched.h>
 #include <linux/io.h>
+#include <linux/msm_ion.h>
 #include <linux/android_pmem.h>
 #include <linux/memory_alloc.h>
 #include <media/videobuf2-msm-mem.h>
@@ -56,7 +57,7 @@ static unsigned long msm_mem_allocate(struct videobuf2_contig_pmem *mem)
 		goto client_failed;
 	}
 	mem->ion_handle = ion_alloc(mem->client, mem->size, SZ_4K,
-		(0x1 << ION_CP_MM_HEAP_ID | 0x1 << ION_IOMMU_HEAP_ID));
+		(0x1 << ION_CP_MM_HEAP_ID | 0x1 << ION_IOMMU_HEAP_ID), 0);
 	if (IS_ERR((void *)mem->ion_handle)) {
 		pr_err("%s Could not allocate\n", __func__);
 		goto alloc_failed;
@@ -64,7 +65,7 @@ static unsigned long msm_mem_allocate(struct videobuf2_contig_pmem *mem)
 	rc = ion_map_iommu(mem->client, mem->ion_handle,
 			CAMERA_DOMAIN, GEN_POOL, SZ_4K, 0,
 			(unsigned long *)&phyaddr,
-			(unsigned long *)&len, UNCACHED, 0);
+			(unsigned long *)&len, 0, 0);
 	if (rc < 0) {
 		pr_err("%s Could not get physical address\n", __func__);
 		goto phys_failed;
@@ -161,15 +162,15 @@ int videobuf2_pmem_contig_mmap_get(struct videobuf2_contig_pmem *mem,
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_mmap_get);
 
 /**
- * videobuf_pmem_contig_user_get() - setup user space memory pointer
- * @mem: per-buffer private videobuf-contig-pmem data
- * @vb: video buffer to map
- *
- * This function validates and sets up a pointer to user space memory.
- * Only physically contiguous pfn-mapped memory is accepted.
- *
- * Returns 0 if successful.
- */
+ *  * videobuf_pmem_contig_user_get() - setup user space memory pointer
+ *   * @mem: per-buffer private videobuf-contig-pmem data
+ *    * @vb: video buffer to map
+ *     *
+ *      * This function validates and sets up a pointer to user space memory.
+ *       * Only physically contiguous pfn-mapped memory is accepted.
+ *        *
+ *         * Returns 0 if successful.
+ *          */
 int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					struct videobuf2_msm_offset *offset,
 					enum videobuf2_buffer_type buffer_type,
@@ -191,7 +192,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 		return PTR_ERR(mem->ion_handle);
 	}
 	rc = ion_map_iommu(client, mem->ion_handle, CAMERA_DOMAIN, GEN_POOL,
-		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, UNCACHED, 0);
+		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, 0, 0);
 	if (rc < 0)
 		ion_free(client, mem->ion_handle);
 #elif CONFIG_ANDROID_PMEM
