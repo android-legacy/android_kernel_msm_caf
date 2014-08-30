@@ -69,6 +69,10 @@
 #define CONFIG_MSM_CAMERA
 #endif
 
+#ifdef CONFIG_SR300PC20_V4L
+#define CONFIG_SR300PC20
+#endif
+
 #define _CONFIG_MACH_JENA // Temporary flag
 #define _CONFIG_MACH_TREBON // Temporary flag
 #define ADSP_RPC_PROG           0x3000000a
