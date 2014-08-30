@@ -1190,7 +1190,7 @@ menuconfig MSM_CAMERA
 
 menuconfig MSM_CAMERA_LEGACY
         bool "Qualcomm legacy MSM camera and video capture support"
-        depends on MSM_CAMERA
+        depends on MSM_CAMERA && !MSM_CAMERA_V4L2
         default y
         help
           Say Y here to enable camera suppor for legacy
