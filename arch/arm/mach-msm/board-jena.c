@@ -53,6 +53,8 @@
 #include "board-msm7x27a-regulator.h"
 #include "devices-msm7x2xa.h"
 #include "pm.h"
+#include "board-msm7627a.h" 
+
 #ifdef CONFIG_SAMSUNG_JACK
 #include <linux/sec_jack.h>
 #endif
@@ -67,10 +69,6 @@
 
 #ifndef CONFIG_MSM_CAMERA
 #define CONFIG_MSM_CAMERA
-#endif
-
-#ifdef CONFIG_SR300PC20_V4L
-#define CONFIG_SR300PC20
 #endif
 
 #ifdef CONFIG_MSM_CAMERA
@@ -248,39 +246,6 @@ static struct platform_device sec_device_jack = {
 	},
 };
 #endif
-
-enum {
-	GPIO_EXPANDER_IRQ_BASE	= NR_MSM_IRQS + NR_GPIO_IRQS,
-	GPIO_EXPANDER_GPIO_BASE	= NR_MSM_GPIOS,
-	/* SURF expander */
-	GPIO_CORE_EXPANDER_BASE	= GPIO_EXPANDER_GPIO_BASE,
-	GPIO_BT_SYS_REST_EN	= GPIO_CORE_EXPANDER_BASE,
-	GPIO_WLAN_EXT_POR_N,
-	GPIO_DISPLAY_PWR_EN,
-	GPIO_BACKLIGHT_EN,
-	GPIO_PRESSURE_XCLR,
-	GPIO_VREG_S3_EXP,
-	GPIO_UBM2M_PWRDWN,
-	GPIO_ETM_MODE_CS_N,
-	GPIO_HOST_VBUS_EN,
-	xGPIO_SPI_MOSI,
-	xGPIO_SPI_MISO,
-	xGPIO_SPI_CLK,
-	xGPIO_SPI_CS0_N,
-	GPIO_CORE_EXPANDER_IO13,
-	GPIO_CORE_EXPANDER_IO14,
-	GPIO_CORE_EXPANDER_IO15,
-	/* Camera expander */
-	GPIO_CAM_EXPANDER_BASE	= GPIO_CORE_EXPANDER_BASE + 16,
-	GPIO_CAM_GP_STROBE_READY	= GPIO_CAM_EXPANDER_BASE,
-	GPIO_CAM_GP_AFBUSY,
-	GPIO_CAM_GP_CAM_PWDN,
-	GPIO_CAM_GP_CAM1MP_XCLR,
-	GPIO_CAM_GP_CAMIF_RESET_N,
-	GPIO_CAM_GP_STROBE_CE,
-	GPIO_CAM_GP_LED_EN1,
-	GPIO_CAM_GP_LED_EN2,
-};
 
 #if defined(CONFIG_GPIO_SX150X)
 enum {
@@ -675,12 +640,6 @@ static struct platform_device msm_wlan_ar6000_pm_device = {
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 static struct platform_device msm_bt_power_device = {
 	.name = "bt_power",
-};
-
-struct bahama_config_register {
-	u8 reg;
-	u8 value;
-	u8 mask;
 };
 
 static const char * const regulators_bahama_name[] = {
@@ -3383,21 +3342,6 @@ static struct platform_device msm_camera_sensor_s5k5ccaf = {
 };
 #endif
 
-struct msm_camera_device_platform_data msm_camera_device_data_csi1[] = {
-	{
-		.csid_core = 1,
-		.ioclk = {
-			.vfe_clk_rate = 192000000,
-		},
-	},
-	{
-		.csid_core = 1,
-		.ioclk = {
-			.vfe_clk_rate = 266667000,
-		},
-	},
-};
-
 #ifdef CONFIG_OV5647
 
 static struct msm_actuator_info msm_act_main_cam_5_info = {
@@ -4531,81 +4475,6 @@ static void __init msm7x27a_init_cam(void)
 static void evb_camera_gpio_cfg(void)
 {
         int rc = 0;
-}
-
-void __init msm7627a_camera_init(void)
-{
-
-#ifndef CONFIG_MSM_CAMERA_V4L2
-	int rc;
-#endif
-
-	pr_debug("msm7627a_camera_init Entered\n");
-
-#ifndef CONFIG_MSM_CAMERA_V4L2
-	if (machine_is_msm7627a_qrd1()) {
-		qrd1_camera_gpio_cfg();
-		platform_add_devices(camera_devices_qrd,
-				ARRAY_SIZE(camera_devices_qrd));
-	} else if (machine_is_msm7627a_evb()
-			|| machine_is_msm8625_evb()
-			|| machine_is_msm8625_evt()
-			|| machine_is_msm7627a_qrd3()
-			|| machine_is_msm8625_qrd7()) {
-		platform_add_devices(camera_devices_evb,
-				ARRAY_SIZE(camera_devices_evb));
-	} else if (machine_is_msm7627a_qrd3())
-		return;
-	else
-		platform_add_devices(camera_devices_msm,
-				ARRAY_SIZE(camera_devices_msm));
-#endif
-	if (!machine_is_msm7627a_qrd1() || !machine_is_msm7627a_evb()
-					|| !machine_is_msm8625_evb()
-					|| !machine_is_msm8625_evt()
-					|| !machine_is_msm7627a_qrd3()
-					|| !machine_is_msm8625_qrd7())
-		register_i2c_devices();
-#ifndef CONFIG_MSM_CAMERA_V4L2
-	rc = regulator_bulk_get(NULL, ARRAY_SIZE(regs_camera), regs_camera);
-
-	if (rc) {
-		pr_err("%s: could not get regulators: %d\n", __func__, rc);
-		return;
-	}
-
-	rc = regulator_bulk_set_voltage(ARRAY_SIZE(regs_camera), regs_camera);
-
-	if (rc) {
-		pr_err("%s: could not set voltages: %d\n", __func__, rc);
-		return;
-	}
-#endif
-
-#if defined(CONFIG_MSM_CAMERA_V4L2)
-	msm7x27a_init_cam();
-#endif
-#ifndef CONFIG_MSM_CAMERA_V4L2
-	if (machine_is_msm7627a_qrd1()) {
-		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
-				i2c_camera_devices_qrd,
-				ARRAY_SIZE(i2c_camera_devices_qrd));
-	} else if (machine_is_msm7627a_evb()
-			|| machine_is_msm8625_evb()
-			|| machine_is_msm8625_evt()
-			|| machine_is_msm7627a_evt()
-			|| machine_is_msm7627a_qrd3()
-			|| machine_is_msm8625_qrd7()) {
-		pr_debug("machine_is_msm7627a_evb i2c_register_board_info\n");
-		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
-				i2c_camera_devices_evb,
-				ARRAY_SIZE(i2c_camera_devices_evb));
-	} else
-#endif
-		pr_debug("i2c_register_board_info\n");
-		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
-				i2c_camera_devices,
-				ARRAY_SIZE(i2c_camera_devices));
 }
 
 static struct msm7x27a_regulators {
