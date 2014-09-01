@@ -3480,6 +3480,76 @@ failure:
 }
 EXPORT_SYMBOL(msm_sensor_register);
 
+static ssize_t rear_camera_type_show(struct device *dev,
+    struct device_attribute *attr, char *buf,
+    size_t count)
+{
+#if defined(CONFIG_S5K4ECGX)
+        char cam_type[] = "SLSI_S5K4ECGX\n";
+#elif defined(CONFIG_S5K5CCGX)
+        char cam_type[] = "SLSI_S5K5CCGX\n";
+#elif defined(CONFIG_SR300PC20_V4L)
+        char cam_type[] = "SF_SR300PC20\n";
+#else
+        char cam_type[] = "SOC_N\n";
+#endif
+
+        return snprintf(buf, sizeof(cam_type), "%s", cam_type);
+}
+
+static ssize_t front_camera_type_show(struct device *dev,
+    struct device_attribute *attr, char *buf,
+    size_t count)
+{
+#if defined(CONFIG_SR030PC50)
+        char cam_type[] = "SF_SR030PC50\n";
+#elif defined(CONFIG_SR200PC20)
+        char cam_type[] = "SF_SR200PC20";
+#else
+        char cam_type[] = "SOC_N\n";
+#endif
+
+        return snprintf(buf, sizeof(cam_type), "%s", cam_type);
+}
+
+static DEVICE_ATTR(rear_camtype, S_IRUGO, rear_camera_type_show, NULL);
+static DEVICE_ATTR(front_camtype, S_IRUGO, front_camera_type_show, NULL);
+
+static ssize_t rear_camera_firmware_show(struct device *dev,
+    struct device_attribute *attr, char *buf,
+    size_t count)
+{
+#if defined(CONFIG_S5K4ECGX)
+        char cam_fw[] = "SLSI_S5K4ECGX\n";
+#elif defined(CONFIG_S5K5CCGX)
+        char cam_fw[] = "SLSI_S5K5CCGX\n";
+#elif defined(CONFIG_SR300PC20_V4L)
+        char cam_fw[] = "SF_SR300PC20\n";
+#else
+        char cam_fw[] = "N\n";
+#endif
+
+        return snprintf(buf, sizeof(cam_fw), "%s", cam_fw);
+}
+
+static ssize_t front_camera_firmware_show(struct device *dev,
+    struct device_attribute *attr, char *buf,
+    size_t count)
+{
+#if defined(CONFIG_SR030PC50)
+        char cam_fw[] = "SF_SR030PC50\n";
+#elif defined(CONFIG_SR200PC20)
+        char cam_fw[] = "SF_SR200PC20\n";
+#else
+        char cam_fw[] = "N\n";
+#endif
+
+        return snprintf(buf, sizeof(cam_fw), "%s", cam_fw);
+}
+
+static DEVICE_ATTR(rear_camfw, 0664, rear_camera_firmware_show, NULL);
+static DEVICE_ATTR(front_camfw, 0664, front_camera_firmware_show, NULL);
+
 static int __devinit msm_camera_probe(struct platform_device *pdev)
 {
 	int rc = 0, i;

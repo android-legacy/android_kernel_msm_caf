@@ -106,6 +106,7 @@ struct msm_sensor_v4l2_ctrl_info_t {
 	int16_t min;
 	int16_t max;
 	int16_t step;
+        int16_t current_value;
 	struct msm_camera_i2c_enum_conf_array *enum_cfg_settings;
 	int (*s_v4l2_ctrl) (struct msm_sensor_ctrl_t *,
 		struct msm_sensor_v4l2_ctrl_info_t *, int);
@@ -200,6 +201,10 @@ struct msm_sensor_ctrl_t {
 	struct clk *cam_clk;
 	long clk_rate;
 	enum msm_sensor_state sensor_state;
+
+        uint8_t is_HD_preview;
+        uint32_t need_configuration;
+        uint8_t is_initialized;
 };
 
 
