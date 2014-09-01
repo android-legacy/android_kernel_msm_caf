@@ -204,42 +204,105 @@ int32_t msm_sensor_write_exp_gain2(struct msm_sensor_ctrl_t *s_ctrl,
 int32_t msm_sensor_setting1(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {
-	int32_t rc = 0;
-	static int csi_config;
+        int32_t rc = 0, check_bit = 0;
+        static int csi_config;
+        struct msm_sensor_v4l2_ctrl_info_t *v4l2_ctrl =
+                s_ctrl->msm_sensor_v4l2_ctrl_info;
 
-	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
-	msleep(30);
-	if (update_type == MSM_SENSOR_REG_INIT) {
-		CDBG("Register INIT\n");
-		s_ctrl->curr_csi_params = NULL;
-		msm_sensor_enable_debugfs(s_ctrl);
-		msm_sensor_write_init_settings(s_ctrl);
-		csi_config = 0;
-	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
-		CDBG("PERIODIC : %d\n", res);
-		msm_sensor_write_conf_array(
-			s_ctrl->sensor_i2c_client,
-			s_ctrl->msm_sensor_reg->mode_settings, res);
-		msleep(30);
-		if (!csi_config) {
-			s_ctrl->curr_csic_params = s_ctrl->csic_params[res];
-			CDBG("CSI config in progress\n");
-			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
-				NOTIFY_CSIC_CFG,
-				s_ctrl->curr_csic_params);
-			CDBG("CSI config is done\n");
-			mb();
-			msleep(30);
-			csi_config = 1;
-		}
-		v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
-			NOTIFY_PCLK_CHANGE,
-			&s_ctrl->sensordata->pdata->ioclk.vfe_clk_rate);
+        if (update_type == MSM_SENSOR_REG_INIT) {
+                CDBG("Register INIT\n");
+                s_ctrl->curr_csi_params = NULL;
+                msm_sensor_enable_debugfs(s_ctrl);
+                s_ctrl->func_tbl->sensor_start_stream(s_ctrl);
+                csi_config = 0;
+                s_ctrl->is_initialized = 0;
+                s_ctrl->need_configuration = 0;
+                s_ctrl->is_HD_preview = 0;
+        } else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
+                CDBG("PERIODIC : %d\n", res);
+                if (!csi_config) {
+                        s_ctrl->curr_csic_params = s_ctrl->csic_params[res];
+                        CDBG("CSI config in progress\n");
+                        v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+                                NOTIFY_CSIC_CFG,
+                                s_ctrl->curr_csic_params);
+                        CDBG("CSI config is done\n");
+                        mb();
+                        msleep(30);
+                        csi_config = 1;
+#if defined(CONFIG_S5K5CCGX)
+                        msm_sensor_checking_mode_changed(s_ctrl,S5K5CCGX_MODE_PREVIEW, 10, 50);
+#elif defined(CONFIG_S5K4ECGX)
+                        if(s_ctrl->sensordata->camera_type == BACK_CAMERA_2D)
+                                msm_sensor_checking_mode_changed(s_ctrl);
+#endif
+                }
+                else {
+                        if(res==0) {
+                                s_ctrl->is_initialized = 0;
+#if defined(CONFIG_S5K4ECGX)|| defined(CONFIG_S5K5CCGX) || defined(CONFIG_SR300PC20_V4L)
+                                s_ctrl->func_tbl->sensor_capture_mode(s_ctrl);
+#endif
+                        }
+                        else
+                        {
+#if defined(CONFIG_S5K4ECGX)
+                                        cam_flash_off(FLASH_MODE_CAMERA);
+                                s_ctrl->func_tbl->sensor_preview_mode(s_ctrl);
+#endif
 
-		s_ctrl->func_tbl->sensor_start_stream(s_ctrl);
-		msleep(50);
-	}
-	return rc;
+#if defined(CONFIG_S5K5CCGX) || defined(CONFIG_SR300PC20_V4L)
+                                s_ctrl->func_tbl->sensor_preview_mode(s_ctrl);
+#endif
+
+                        }
+#if !defined(CONFIG_S5K4ECGX) && !defined(CONFIG_S5K5CCGX) && !defined(CONFIG_SR300PC20_V4L)
+                        msm_sensor_write_conf_array(
+                                s_ctrl->sensor_i2c_client,
+                                s_ctrl->msm_sensor_reg->mode_settings, res);
+#endif
+#if defined(CONFIG_S5K5CCGX)
+                        if(res == 1)
+                                msm_sensor_checking_mode_changed(s_ctrl,S5K5CCGX_MODE_PREVIEW, 10, 50);
+                        else
+                                msm_sensor_checking_mode_changed(s_ctrl,S5K5CCGX_MODE_CAPTURE, 10, 50);
+#elif defined(CONFIG_S5K4ECGX)
+                        if(s_ctrl->sensordata->camera_type == BACK_CAMERA_2D)
+                                msm_sensor_checking_mode_changed(s_ctrl);
+#endif
+                }
+
+                if(res==0) {
+                        s_ctrl->is_initialized = 1;
+                        return rc;
+                }
+
+#if defined(CONFIG_S5K4ECGX)
+        if(s_ctrl->sensordata->camera_type == BACK_CAMERA_2D)
+        {
+                if(s_ctrl->func_tbl->sensor_get_flash_status() == 1)
+                {
+                        mdelay(500);
+                        printk("check flash status\n");
+                }
+        }
+#endif
+                printk("need_configuration[0x%x]\n", s_ctrl->need_configuration);
+                while(s_ctrl->need_configuration) {
+                        if(s_ctrl->need_configuration & 0x1) {
+                                printk("execute ctrl_id[%d], value[%d]\n", v4l2_ctrl[check_bit].ctrl_id, v4l2_ctrl[check_bit].current_value);
+                                rc = v4l2_ctrl[check_bit].s_v4l2_ctrl(s_ctrl,
+                                        &s_ctrl->msm_sensor_v4l2_ctrl_info[check_bit],
+                                        v4l2_ctrl[check_bit].current_value);
+                        }
+                        check_bit++;
+                        s_ctrl->need_configuration >>= 1;
+                }
+//              v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+//                      NOTIFY_PCLK_CHANGE,
+//                      &s_ctrl->sensordata->pdata->ioclk.vfe_clk_rate);
+        }
+        return rc;
 }
 int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
