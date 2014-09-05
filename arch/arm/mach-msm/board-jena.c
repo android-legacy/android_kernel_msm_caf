@@ -1187,12 +1187,6 @@ static struct i2c_board_info core_exp_i2c_info[] __initdata = {
 		.platform_data =  &sx150x_data[SX150X_CORE],
 	},
 };
-static struct i2c_board_info cam_exp_i2c_info[] __initdata = {
-	{
-		I2C_BOARD_INFO("sx1508q", 0x22),
-		.platform_data	= &sx150x_data[SX150X_CAM],
-	},
-};
 #endif
 
 #if defined(CONFIG_PN544)
@@ -1562,11 +1556,6 @@ static struct i2c_board_info fg_i2c_devices[] = {
 #if defined(CONFIG_I2C) && defined(CONFIG_GPIO_SX150X)
 static void __init register_i2c_devices(void)
 {
-
-	i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
-				cam_exp_i2c_info,
-				ARRAY_SIZE(cam_exp_i2c_info));
-
 	if (machine_is_msm7x27a_surf())
 		sx150x_data[SX150X_CORE].io_open_drain_ena = 0xe0f0;
 
