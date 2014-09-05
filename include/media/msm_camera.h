@@ -1,6 +1,3 @@
-#ifdef CONFIG_MSM_CAMERA_LEGACY
-#include "media/msm_camera_legacy.h"
-#else
 /* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -197,12 +194,18 @@
 #define MSM_CAM_IOCTL_ISPIF_IO_CFG \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 54, struct ispif_cfg_data *)
 
+#define MSM_CAM_IOCTL_V4L2_EVT_NATIVE_CMD \
+	_IOWR(MSM_CAM_IOCTL_MAGIC, 55, struct msm_camera_v4l2_ioctl_t)
+
+#define MSM_CAM_IOCTL_V4L2_EVT_NATIVE_FRONT_CMD \
+	_IOWR(MSM_CAM_IOCTL_MAGIC, 56, struct msm_camera_v4l2_ioctl_t)
+
 struct ioctl_native_cmd {
-        unsigned short mode;
-        unsigned short address;
-        unsigned short value_1;
-        unsigned short value_2;
-        unsigned short value_3;
+	unsigned short mode;
+	unsigned short address;
+	unsigned short value_1;
+	unsigned short value_2;
+	unsigned short value_3;
 };
 
 struct msm_mctl_pp_cmd {
@@ -215,6 +218,18 @@ struct msm_mctl_post_proc_cmd {
 	int32_t type;
 	struct msm_mctl_pp_cmd cmd;
 };
+
+#if 1 //PCAM
+typedef struct {
+	unsigned short mode;
+	unsigned short address;
+	unsigned short value_1;
+	unsigned short value_2;
+	unsigned short value_3;
+} ioctl_pcam_info_8bit;
+
+#define MSM_CAM_IOCTL_PCAM_CTRL_8BIT	_IOWR(MSM_CAM_IOCTL_MAGIC, 40, ioctl_pcam_info_8bit)
+#endif //PCAM
 
 #define MSM_CAMERA_LED_OFF  0
 #define MSM_CAMERA_LED_LOW  1
@@ -244,10 +259,10 @@ struct msm_mctl_post_proc_cmd {
 #define PP_RAW_SNAP ((0x01)<<1)
 #define PP_PREV  ((0x01)<<2)
 #define PP_THUMB ((0x01)<<3)
-#define MSM_ACTUATOR_MOVE_SIGNED_FAR -1
-#define MSM_ACTUATOR_MOVE_SIGNED_NEAR  1
 #define PP_MASK		(PP_SNAP|PP_RAW_SNAP|PP_PREV|PP_THUMB)
 
+#define MSM_ACTUATOR_MOVE_SIGNED_FAR -1
+#define MSM_ACTUATOR_MOVE_SIGNED_NEAR  1
 #define MSM_CAM_CTRL_CMD_DONE  0
 #define MSM_CAM_SENSOR_VFE_CMD 1
 
@@ -829,23 +844,9 @@ struct msm_snapshot_pp_status {
 #define CFG_START_STREAM              44
 #define CFG_STOP_STREAM               45
 #define CFG_GET_CSI_PARAMS            46
-#define CFG_POWER_UP                  47
-#define CFG_POWER_DOWN                48
-#define CFG_WRITE_I2C_ARRAY           49
-#define CFG_READ_I2C_ARRAY            50
-#define CFG_PCLK_CHANGE               51
-#define CFG_CONFIG_VREG_ARRAY         52
-#define CFG_CONFIG_CLK_ARRAY          53
-#define CFG_GPIO_OP                   54
-#define CFG_SET_VISION_MODE           55
-#define CFG_SET_VISION_AE             56
-#define CFG_HDR_UPDATE                57
-#define CFG_ACTUAOTOR_REG_INIT        58
-#define CFG_MAX                       59
 #define CFG_SET_PREVIEW_SIZE          47
 #define CFG_SET_PICTURE_SIZE          48
-#define CFG_SENSOR_PIP_SET_CAM_MODE   47
-#define CFG_SENSOR_PIP_GET_CAM_MODE   48
+#define CFG_MAX			49
 
 #define MOVE_NEAR	0
 #define MOVE_FAR	1
@@ -862,135 +863,131 @@ struct msm_snapshot_pp_status {
 #define SENSOR_QVGA_SIZE		2
 #define SENSOR_INVALID_SIZE		3
 
-#define CAMERA_EFFECT_OFF                0
-#define CAMERA_EFFECT_MONO                1
-#define CAMERA_EFFECT_NEGATIVE                2
-#define CAMERA_EFFECT_SOLARIZE                3
-#define CAMERA_EFFECT_SEPIA                4
-#define CAMERA_EFFECT_POSTERIZE                5
-#define CAMERA_EFFECT_WHITEBOARD        6
-#define CAMERA_EFFECT_BLACKBOARD        7
-#define CAMERA_EFFECT_AQUA                8
-#define CAMERA_EFFECT_EMBOSS                9
-#define CAMERA_EFFECT_SKETCH                10
-#define CAMERA_EFFECT_NEON                11
-#define CAMERA_EFFECT_WASHED                12
-#define CAMERA_EFFECT_VINTAGE_WARM        13
-#define CAMERA_EFFECT_VINTAGE_COLD        14
-#define CAMERA_EFFECT_POINT_COLOR_1        15
-#define CAMERA_EFFECT_POINT_COLOR_2        16
-#define CAMERA_EFFECT_POINT_COLOR_3        17
-#define CAMERA_EFFECT_POINT_COLOR_4        18
-#define CAMERA_EFFECT_MAX                19
+#define CAMERA_EFFECT_OFF		0
+#define CAMERA_EFFECT_MONO		1
+#define CAMERA_EFFECT_NEGATIVE		2
+#define CAMERA_EFFECT_SOLARIZE		3
+#define CAMERA_EFFECT_SEPIA		4
+#define CAMERA_EFFECT_POSTERIZE		5
+#define CAMERA_EFFECT_WHITEBOARD	6
+#define CAMERA_EFFECT_BLACKBOARD	7
+#define CAMERA_EFFECT_AQUA		8
+#define CAMERA_EFFECT_EMBOSS		9
+#define CAMERA_EFFECT_SKETCH		10
+#define CAMERA_EFFECT_NEON		11
+#define CAMERA_EFFECT_WASHED		12
+#define CAMERA_EFFECT_VINTAGE_WARM	13
+#define CAMERA_EFFECT_VINTAGE_COLD	14
+#define CAMERA_EFFECT_POINT_COLOR_1	15
+#define CAMERA_EFFECT_POINT_COLOR_2	16
+#define CAMERA_EFFECT_POINT_COLOR_3	17
+#define CAMERA_EFFECT_POINT_COLOR_4	18
+#define CAMERA_EFFECT_MAX		19
 
-#define CAMERA_WHITE_BALANCE_AUTO                                1
-#define CAMERA_WHITE_BALANCE_INCANDESCENT                3
-#define CAMERA_WHITE_BALANCE_FLUORESCENT                4
-#define CAMERA_WHITE_BALANCE_DAYLIGHT                        5
-#define CAMERA_WHITE_BALANCE_CLOUDY_DAYLIGHT        6
+#define CAMERA_WHITE_BALANCE_AUTO				1
+#define CAMERA_WHITE_BALANCE_INCANDESCENT		3
+#define CAMERA_WHITE_BALANCE_FLUORESCENT		4
+#define CAMERA_WHITE_BALANCE_DAYLIGHT			5
+#define CAMERA_WHITE_BALANCE_CLOUDY_DAYLIGHT	6
 
-#define CAMERA_FLASH_OFF                0
-#define CAMERA_FLASH_ON                2
-#define CAMERA_FLASH_AUTO                1
-#define CAMERA_FLASH_TORCH        3
+#define CAMERA_FLASH_OFF		0
+#define CAMERA_FLASH_ON		2
+#define CAMERA_FLASH_AUTO		1
+#define CAMERA_FLASH_TORCH	3
 
-#define CAMERA_EV_M4        0
-#define CAMERA_EV_M3        1
-#define CAMERA_EV_M2        2
-#define CAMERA_EV_M1        3
-#define CAMERA_EV_DEFAULT        4
-#define CAMERA_EV_P1                5
-#define CAMERA_EV_P2                6
-#define CAMERA_EV_P3                7
-#define CAMERA_EV_P4                8
+#define CAMERA_EV_M4	0
+#define CAMERA_EV_M3	1
+#define CAMERA_EV_M2	2
+#define CAMERA_EV_M1	3
+#define CAMERA_EV_DEFAULT	4
+#define CAMERA_EV_P1		5
+#define CAMERA_EV_P2		6
+#define CAMERA_EV_P3		7
+#define CAMERA_EV_P4		8
 
-#define CAMERA_ISO_MODE_AUTO        0
-#define CAMERA_ISO_MODE_DEBLUR        1        //kk0704.park :: add ISO value to match HAL value
-#define CAMERA_ISO_MODE_50        2
-#define CAMERA_ISO_MODE_100        3
-#define CAMERA_ISO_MODE_200        4
-#define CAMERA_ISO_MODE_400        5
-#define CAMERA_ISO_MODE_800        6
+#define CAMERA_ISO_MODE_AUTO	0
+#define CAMERA_ISO_MODE_DEBLUR	1	//kk0704.park :: add ISO value to match HAL value
+#define CAMERA_ISO_MODE_50	2
+#define CAMERA_ISO_MODE_100	3
+#define CAMERA_ISO_MODE_200	4
+#define CAMERA_ISO_MODE_400	5
+#define CAMERA_ISO_MODE_800	6
 
-#define CAMERA_AVERAGE                        0
-#define CAMERA_CENTER_WEIGHT        1
-#define CAMERA_SPOT                        2
+#define CAMERA_AVERAGE			0
+#define CAMERA_CENTER_WEIGHT	1
+#define CAMERA_SPOT			2
 
-#define CAMERA_SCENE_OFF                0
-#define CAMERA_SCENE_AUTO                1
-#define CAMERA_SCENE_LANDSCAPE        2
-#define CAMERA_SCENE_BEACH                4
-#define CAMERA_SCENE_SUNSET                5
-#define CAMERA_SCENE_NIGHT                6
-#define CAMERA_SCENE_PORTRAIT        7
-#define CAMERA_SCENE_AGAINST_LIGHT        8
-#define CAMERA_SCENE_SPORT                9
-#define CAMERA_SCENE_CANDLE                12
-#define CAMERA_SCENE_FIRE                13
-#define CAMERA_SCENE_PARTY                14
-#define CAMERA_SCENE_DAWN                19
-#define CAMERA_SCENE_FALL                20
-#define CAMERA_SCENE_TEXT                21
+#define CAMERA_SCENE_OFF		0
+#define CAMERA_SCENE_AUTO		1
+#define CAMERA_SCENE_LANDSCAPE	2
+#define CAMERA_SCENE_BEACH		4
+#define CAMERA_SCENE_SUNSET		5
+#define CAMERA_SCENE_NIGHT		6
+#define CAMERA_SCENE_PORTRAIT	7
+#define CAMERA_SCENE_AGAINST_LIGHT	8
+#define CAMERA_SCENE_SPORT		9
+#define CAMERA_SCENE_CANDLE		12
+#define CAMERA_SCENE_FIRE		13
+#define CAMERA_SCENE_PARTY		14
+#define CAMERA_SCENE_DAWN		19
+#define CAMERA_SCENE_FALL		20
+#define CAMERA_SCENE_TEXT		21
 
-#define CAMERA_AF_MACRO                1
-#define CAMERA_AF_AUTO                2
+#define CAMERA_AF_MACRO		1
+#define CAMERA_AF_AUTO		2
 
 /*native cmd code*/
-#define EXT_CAM_AF                1
-#define EXT_CAM_FLASH_STATUS        2
-#define EXT_CAM_FLASH_MODE        3
-#define EXT_CAM_EV        4
-#define EXT_CAM_SCENE_MODE        5
-#define EXT_CAM_ISO        6
-#define EXT_CAM_METERING                7
-#define EXT_CAM_WB        8
-#define EXT_CAM_EFFECT        9
-#define EXT_CAM_FOCUS        10
-#define EXT_CAM_PREVIEW_SIZE                11
-#define EXT_CAM_MOVIE_MODE                12
-#define EXT_CAM_DTP_TEST                13
-#define EXT_CAM_SET_AF_STATUS                14
-#define EXT_CAM_GET_AF_STATUS                15
-#define EXT_CAM_GET_AF_RESULT                16
-#define EXT_CAM_SET_TOUCHAF_POS                17
-#define EXT_CAM_SET_AE_AWB                18
-#define EXT_CAM_START_CAPTURE                19
-#define EXT_CAM_QUALITY                20
-#define EXT_CAM_ZOOM                21
-#define EXT_CAM_FD_MODE                22
-#define EXT_CAM_SET_AF_STOP                23
-#define EXT_CAM_SET_ANTI_SHAKE                24
-#define EXT_CAM_SET_WDR                        25
-#define EXT_CAM_SET_BEAUTY_SHOT                26
-#define EXT_CAM_EXIF                        27
-#define EXT_CAM_SET_JPEG_SIZE                28
-#define EXT_CAM_SET_PREVIEW_SIZE        29
-#define EXT_CAM_SET_AF_MODE                30
-#define EXT_CAM_SET_FPS                31
-#define EXT_CAM_GET_FLASH_STATUS        32
-#define EXT_CAM_SET_HDR        33
-#define EXT_CAM_START_HDR        34
-#define EXT_CAM_START_AE_AWB_LOCK        35
-#define EXT_CAM_SET_VDIS        36
-#define EXT_CAM_VT_MODE                37
-#define EXT_CAM_GET_LUX                38
-#define EXT_CAM_SET_FACE_ZOOM                39
-#define EXT_CAM_SET_RECORD_SIZE                40
-#define EXT_CAM_GET_AE_AWB_LOCK                41
-#define EXT_CAM_UPDATE_FW                42
-#define EXT_CAM_ANTI_BANDING                43
-#define EXT_CAM_SAMSUNG_CAMERA                44
-#define EXT_CAM_SET_FLIP                45
+#define EXT_CAM_AF		1
+#define EXT_CAM_FLASH_STATUS	2
+#define EXT_CAM_FLASH_MODE	3
+#define EXT_CAM_EV	4
+#define EXT_CAM_SCENE_MODE	5
+#define EXT_CAM_ISO	6
+#define EXT_CAM_METERING		7
+#define EXT_CAM_WB	8
+#define EXT_CAM_EFFECT	9
+#define EXT_CAM_FOCUS	10
+#define EXT_CAM_PREVIEW_SIZE		11
+#define EXT_CAM_MOVIE_MODE		12
+#define EXT_CAM_DTP_TEST		13
+#define EXT_CAM_SET_AF_STATUS		14
+#define EXT_CAM_GET_AF_STATUS		15
+#define EXT_CAM_GET_AF_RESULT		16
+#define EXT_CAM_SET_TOUCHAF_POS		17
+#define EXT_CAM_SET_AE_AWB		18
+#define EXT_CAM_START_CAPTURE		19
+#define EXT_CAM_QUALITY		20
+#define EXT_CAM_ZOOM		21
+#define EXT_CAM_FD_MODE		22
+#define EXT_CAM_SET_AF_STOP		23
+#define EXT_CAM_SET_ANTI_SHAKE		24
+#define EXT_CAM_SET_WDR			25
+#define EXT_CAM_SET_BEAUTY_SHOT		26
+#define EXT_CAM_EXIF			27
+#define EXT_CAM_SET_JPEG_SIZE		28
+#define EXT_CAM_SET_PREVIEW_SIZE	29
+#define EXT_CAM_SET_AF_MODE		30
+#define EXT_CAM_SET_FPS		31
+#define EXT_CAM_GET_FLASH_STATUS	32
+#define EXT_CAM_SET_HDR	33
+#define EXT_CAM_START_HDR	34
+#define EXT_CAM_START_AE_AWB_LOCK	35
+#define EXT_CAM_SET_VDIS	36
+#define EXT_CAM_VT_MODE		37
+#define EXT_CAM_GET_LUX		38
+#define EXT_CAM_SET_FACE_ZOOM		39
+#define EXT_CAM_SET_RECORD_SIZE		40
+#define EXT_CAM_GET_AE_AWB_LOCK		41
+#define EXT_CAM_UPDATE_FW		42
+#define EXT_CAM_ANTI_BANDING		43
+#define EXT_CAM_SAMSUNG_CAMERA		44
+#define EXT_CAM_SET_FLIP		45
+
 /* QRD */
 #define CAMERA_EFFECT_BW		10
 #define CAMERA_EFFECT_BLUISH	12
 #define CAMERA_EFFECT_REDDISH	13
 #define CAMERA_EFFECT_GREENISH	14
-
-/* PIP working mode */
-#define CAM_WORKING_MODE_NORMAL     0
-#define CAM_WORKING_MODE_PIP        1
-
 
 /* QRD */
 #define CAMERA_ANTIBANDING_OFF		0
@@ -1090,11 +1087,15 @@ enum msm_v4l2_contrast_level {
 
 
 enum msm_v4l2_exposure_level {
+	MSM_V4L2_EXPOSURE_N4,
+	MSM_V4L2_EXPOSURE_N3,
 	MSM_V4L2_EXPOSURE_N2,
 	MSM_V4L2_EXPOSURE_N1,
 	MSM_V4L2_EXPOSURE_D,
 	MSM_V4L2_EXPOSURE_P1,
 	MSM_V4L2_EXPOSURE_P2,
+	MSM_V4L2_EXPOSURE_P3,
+	MSM_V4L2_EXPOSURE_P4,
 };
 
 enum msm_v4l2_sharpness_level {
@@ -1154,6 +1155,30 @@ enum msm_v4l2_power_line_frequency {
 	MSM_V4L2_POWER_LINE_60HZ,
 	MSM_V4L2_POWER_LINE_50HZ,
 	MSM_V4L2_POWER_LINE_AUTO,
+};
+
+enum msm_v4l2_preview_size {
+	MSM_V4L2_PREVIEW_SIZE_NORMAL,
+	MSM_V4L2_PREVIEW_SIZE_WIDE,
+	MSM_V4L2_PREVIEW_SIZE_HD,
+	MSM_V4L2_PREVIEW_SIZE_DISABLE_HD,
+	MSM_V4L2_PREVIEW_SIZE_960x720,
+	MSM_V4L2_PREVIEW_SIZE_DTP,
+	MSM_V4L2_PREVIEW_SIZE_720x480_D1,
+};
+
+enum msm_v4l2_picture_size {
+	MSM_V4L2_PICTURE_SIZE_2560x1920_5M,
+	MSM_V4L2_PICTURE_SIZE_2560x1536_4M_WIDE,
+	MSM_V4L2_PICTURE_SIZE_2048x1536_3M,
+	MSM_V4L2_PICTURE_SIZE_2048x1232_2_4M_WIDE,
+	MSM_V4L2_PICTURE_SIZE_1600x1200_2M,
+	MSM_V4L2_PICTURE_SIZE_1600x960_1_5M_WIDE,
+	MSM_V4L2_PICTURE_SIZE_1280x960_1M,
+	MSM_V4L2_PICTURE_SIZE_1024x768_8K,
+	MSM_V4L2_PICTURE_SIZE_800x480_4K_WIDE,
+	MSM_V4L2_PICTURE_SIZE_640x480_VGA,
+//	MSM_V4L2_PICTURE_SIZE_320x240_QVGA,
 };
 
 #define CAMERA_ISO_TYPE_AUTO           0
@@ -1398,6 +1423,8 @@ struct sensor_cfg_data {
 
 	union {
 		int8_t effect;
+		uint8_t preview_size;
+		uint8_t picture_size;
 		uint8_t lens_shading;
 		uint16_t prevl_pf;
 		uint16_t prevp_pl;
@@ -1423,7 +1450,6 @@ struct sensor_cfg_data {
 		uint8_t saturation;
 		uint8_t sharpness;
 		int8_t brightness;
-		int32_t pip_mode;
 		int ae_mode;
 		uint8_t wb_val;
 		int8_t exp_compensation;
@@ -1457,7 +1483,7 @@ enum msm_actuator_addr_type {
 enum msm_actuator_write_type {
 	MSM_ACTUATOR_WRITE_HW_DAMP,
 	MSM_ACTUATOR_WRITE_DAC,
-	MSM_ACTUATOR_WRITE_DAC_AD5823,
+        MSM_ACTUATOR_WRITE_DAC_AD5823,
 };
 
 struct msm_actuator_reg_params_t {
@@ -1536,8 +1562,6 @@ enum af_camera_name {
 	ACTUATOR_MAIN_CAM_3,
 	ACTUATOR_MAIN_CAM_4,
 	ACTUATOR_MAIN_CAM_5,
-	ACTUATOR_MAIN_CAM_6,
-	ACTUATOR_MAIN_CAM_7,
 	ACTUATOR_WEB_CAM_0,
 	ACTUATOR_WEB_CAM_1,
 	ACTUATOR_WEB_CAM_2,
@@ -1673,13 +1697,6 @@ struct flash_ctrl_data {
 #define GET_SNAPSHOT_FPS		5
 #define GET_SNAPSHOT_MAX_EP_LINE_CNT	6
 
-#define        EXIF_EXPOSURE_TIME                0
-#define        EXIF_TV                                        1
-#define        EXIF_AV                                        2
-#define        EXIF_BV                                        3
-#define        EXIF_EBV                                4
-#define        EXIF_ISO                                5
-#define        EXIF_FLASH                                6
 struct msm_camsensor_info {
 	char name[MAX_SENSOR_NAME];
 	uint8_t flash_enabled;
@@ -1696,6 +1713,401 @@ struct msm_camsensor_info {
 	uint32_t max_width;
 	uint32_t max_height;
 };
+
+#if 1 //defined(CONFIG_OEM_CAMERA)
+typedef struct {
+	uint32_t device_id;
+	uint32_t cmd;
+	uint32_t  value_1;
+	uint32_t  value_2;
+	void* p;
+} sensor_ext_cfg_data;
+
+typedef struct {
+	char company;
+	char module_vesion;
+	char year;
+	char month;
+	char update_times[2];
+} sensor_version_info;
+
+typedef struct {
+	uint32_t dev_num;
+	char module_name[10];
+} sensor_name_info;
+
+struct sensor_version {
+	unsigned int major;
+	unsigned int minor;
+};
+
+struct sensor_date_info {
+	unsigned int year;
+	unsigned int month;
+	unsigned int date;
+};
+
+struct sensor_sensor_maker {
+	unsigned int maker;
+	unsigned int optical;
+};
+
+struct sensor_version_af {
+	unsigned int low;
+	unsigned int high;
+};
+
+struct sensor_gamma {
+	unsigned int rg_low;
+	unsigned int rg_high;
+	unsigned int bg_low;
+	unsigned int bg_high;
+};
+
+struct sensor_firmware_info {
+    struct sensor_version fw;
+    struct sensor_version prm;
+    struct sensor_date_info dateinfo;
+    struct sensor_sensor_maker sensor_info;
+    struct sensor_version_af af_info;
+    struct sensor_gamma gamma;
+    unsigned int fw_dump_size;
+	unsigned  int sensor_version;
+};
+
+struct gps_info_common {
+	unsigned int direction;
+	unsigned int dgree;
+	unsigned int minute;
+	unsigned int second;
+};
+
+enum v4l2_blur {
+	BLUR_LEVEL_0 = 0,
+	BLUR_LEVEL_1,
+	BLUR_LEVEL_2,
+	BLUR_LEVEL_3,
+	BLUR_LEVEL_MAX,
+};
+
+#define MSM_CAM_IOCTL_EXT_CONFIG		_IOWR(MSM_CAM_IOCTL_MAGIC, 61, struct sensor_cfg_data)
+#define MSM_CAM_IOCTL_FIRMWARE_UPDATE	_IOWR(MSM_CAM_IOCTL_MAGIC, 62, sensor_ext_cfg_data)
+#define MSM_CAM_IOCTL_READ_VERSION_INFO	_IOWR(MSM_CAM_IOCTL_MAGIC, 63, struct sensor_firmware_info)
+#define MSM_CAM_IOCTL_READ_MODULE_NAME	_IOWR(MSM_CAM_IOCTL_MAGIC, 64, sensor_name_info)
+
+#define	EXIF_EXPOSURE_TIME		0
+#define	EXIF_TV					1
+#define	EXIF_AV					2
+#define	EXIF_BV					3
+#define	EXIF_EBV				4
+#define	EXIF_ISO				5
+#define	EXIF_FLASH				6
+
+enum ext_cfg_command {
+    EXT_CFG_SET_FLASH = 0,
+    EXT_CFG_SET_FLASH_MODE,
+    EXT_CFG_SET_AUTO_CONTRAST,
+    EXT_CFG_SET_SCENE,
+    EXT_CFG_SET_SHARPNESS,
+    EXT_CFG_SET_EFFECT,
+    EXT_CFG_SET_SATURATION,
+    EXT_CFG_SET_ISO,
+    EXT_CFG_SET_WB,
+    EXT_CFG_SET_CONTRAST,
+    EXT_CFG_SET_BRIGHTNESS,
+    EXT_CFG_SET_ZOOM,
+    EXT_CFG_SET_FPS,
+    EXT_CFG_SET_FPS_MODE,
+    EXT_CFG_SET_AF_MODE,
+    EXT_CFG_SET_AF_START,
+    EXT_CFG_SET_AF_STOP,
+    EXT_CFG_SET_AF_OPERATION,
+    EXT_CFG_GET_AF_STATUS,
+    EXT_CFG_SET_TOUCHAF_POS,
+    EXT_CFG_SET_FACE_DETECT,
+    EXT_CFG_SET_METERING,
+    EXT_CFG_SET_CONTINUOUS_AF,
+    EXT_CFG_SET_PREVIEW_SIZE,
+    EXT_CFG_SET_PICTURE_SIZE,
+    EXT_CFG_SET_JPEG_QUALITY,
+    EXT_CFG_SET_ANTISHAKE,
+    EXT_CFG_SET_WDR,
+    EXT_CFG_SET_EXIF,
+    EXT_CFG_SET_DTP,
+    EXT_CFG_SET_AE_AWB,
+    EXT_CFG_SET_FRONT_CAMERA_MODE,
+    EXT_CFG_SET_BEAUTY,
+    EXT_CFG_SET_VINTAGEMODE,
+    EXT_CFG_SET_BATCH_REFLECTION,
+    EXT_CFG_GET_JPEG_SIZE,
+    EXT_CFG_UPDATE_FIRMWARE,
+    EXT_CFG_DUMP_FIRMWARE,
+    EXT_CFG_SET_GPS_LATITUDE,
+    EXT_CFG_SET_GPS_LONGITUDE,
+    EXT_CFG_SET_GPS_ALTITUDE,
+    EXT_CFG_SET_GPS_TIMESTAMP,
+    EXT_CFG_SET_EXIF_TIME_INFO,
+    EXT_CFG_SET_GPS_PROCESSINGMETHOD,
+    EXT_CFG_SET_EXIF_ORIENTATION_INFO,
+    EXT_CFG_SET_BLUR,
+    EXT_CFG_SET_THUMB_NULL,
+    EXT_CFG_SET_CAM_MODE,
+    EXT_CFG_GET_EXIF_INFO,
+    EXT_CFG_GET_FLASH_INFO,
+    EXT_CFG_GET_VGACAM_ROTATED, // kurtlee
+    EXT_CFG_TEST_ESD,
+    EXT_CFG_GET_INFO,
+    EXT_CFG_FRAME_CONTROL,
+    EXT_CFG_AF_CONTROL,
+    EXT_CFG_EFFECT_CONTROL,
+    EXT_CFG_WB_CONTROL,
+    EXT_CFG_BR_CONTROL,
+    EXT_CFG_ISO_CONTROL,
+    EXT_CFG_METERING_CONTROL,
+    EXT_CFG_SCENE_CONTROL,
+    EXT_CFG_AE_AWB_CONTROL,
+    EXT_CFG_CR_CONTROL,
+    EXT_CFG_SA_CONTROL,
+    EXT_CFG_SP_CONTROL,
+    EXT_CFG_CPU_CONTROL,
+    EXT_CFG_DTP_CONTROL,
+    EXT_CFG_PRETTY_CONTROL,
+    EXT_CFG_VT_MODE_CONTROL,
+    EXT_CFG_GET_MODULE_STATUS,
+	EXT_CFG_SET_FLIP,
+
+    EXT_CFG_MAX,
+};
+
+enum ext_cfg_command_cammode {
+	EXT_CFG_CAM_MODE_CAMERA,
+	EXT_CFG_CAM_MODE_CAMCORDER,
+	EXT_CFG_CAM_MODE_FACTORY_TEST,
+};
+
+enum ext_cfg_command_jpeq_quality {
+	EXT_CFG_JPEG_QUALITY_SUPERFINE,
+	EXT_CFG_JPEG_QUALITY_FINE,
+	EXT_CFG_JPEG_QUALITY_NORMAL,
+};
+
+enum ext_cfg_command_auto_contrast {
+	EXT_CFG_AUTO_CONTRAST_ON,
+	EXT_CFG_AUTO_CONTRAST_OFF,
+};
+
+enum ext_cfg_command_framerate {
+	EXT_CFG_FRAME_AUTO = 0,
+	EXT_CFG_FRAME_FIX_7 = 7,
+	EXT_CFG_FRAME_FIX_15 = 15,
+	EXT_CFG_FRAME_FIX_20 = 20,
+	EXT_CFG_FRAME_FIX_24 = 24,
+	EXT_CFG_FRAME_FIX_25 = 25,
+	EXT_CFG_FRAME_FIX_30 = 30,
+};
+
+enum ext_cfg_command_effect {
+	EXT_CFG_EFFECT_NORMAL,
+	EXT_CFG_EFFECT_NEGATIVE,
+	EXT_CFG_EFFECT_MONO,
+	EXT_CFG_EFFECT_SEPIA,
+};
+
+enum ext_cfg_command_whitebalance {
+	EXT_CFG_WB_AUTO,
+	EXT_CFG_WB_DAYLIGHT,
+	EXT_CFG_WB_CLOUDY,
+	EXT_CFG_WB_FLUORESCENT,
+	EXT_CFG_WB_INCANDESCENT,
+};
+
+enum ext_cfg_command_brightness {
+	EXT_CFG_BR_STEP_M_4,
+	EXT_CFG_BR_STEP_M_3,
+	EXT_CFG_BR_STEP_M_2,
+	EXT_CFG_BR_STEP_M_1,
+	EXT_CFG_BR_STEP_0,
+	EXT_CFG_BR_STEP_P_1,
+	EXT_CFG_BR_STEP_P_2,
+	EXT_CFG_BR_STEP_P_3,
+	EXT_CFG_BR_STEP_P_4,
+};
+
+enum ext_cfg_command_contrast {
+	EXT_CFG_CR_STEP_M_2,
+	EXT_CFG_CR_STEP_M_1,
+	EXT_CFG_CR_STEP_0,
+	EXT_CFG_CR_STEP_P_1,
+	EXT_CFG_CR_STEP_P_2,
+};
+
+enum ext_cfg_command_saturation {
+	EXT_CFG_SA_STEP_M_2,
+	EXT_CFG_SA_STEP_M_1,
+	EXT_CFG_SA_STEP_0,
+	EXT_CFG_SA_STEP_P_1,
+	EXT_CFG_SA_STEP_P_2,
+};
+
+enum ext_cfg_command_sharpness {
+	EXT_CFG_SP_STEP_M_2,
+	EXT_CFG_SP_STEP_M_1,
+	EXT_CFG_SP_STEP_0,
+	EXT_CFG_SP_STEP_P_1,
+	EXT_CFG_SP_STEP_P_2,
+};
+
+enum ext_cfg_command_iso {
+	EXT_CFG_ISO_AUTO,
+	EXT_CFG_ISO_50,
+	EXT_CFG_ISO_100,
+	EXT_CFG_ISO_200,
+	EXT_CFG_ISO_400,
+};
+
+enum ext_cfg_command_metering {
+	EXT_CFG_METERING_NORMAL, //matrix
+	EXT_CFG_METERING_SPOT,
+	EXT_CFG_METERING_CENTER,
+};
+
+enum ext_cfg_command_scene {
+	EXT_CFG_SCENE_OFF,
+	EXT_CFG_SCENE_AUTO,
+	EXT_CFG_SCENE_LANDSCAPE,
+	EXT_CFG_SCENE_SNOW,
+	EXT_CFG_SCENE_BEACH,
+	EXT_CFG_SCENE_SUNSET,
+	EXT_CFG_SCENE_NIGHTSHOT,
+	EXT_CFG_SCENE_PORTRAIT,
+	EXT_CFG_SCENE_BACKLIGHT,
+	EXT_CFG_SCENE_SPORTS,
+	EXT_CFG_SCENE_ANTISHAKE,
+	EXT_CFG_SCENE_FLOWERS,
+	EXT_CFG_SCENE_CANDLE,
+	EXT_CFG_SCENE_FIREWORK,
+	EXT_CFG_SCENE_PARTY,
+	EXT_CFG_SCENE_NIGHT_PORTRAIT,
+	EXT_CFG_SCENE_THEATRE,
+	EXT_CFG_SCENE_ACTION,
+	EXT_CFG_SCENE_AR,
+	EXT_CFG_SCENE_DAWN,
+	EXT_CFG_SCENE_FALL,
+	EXT_CFG_SCENE_TEXT,
+};
+
+enum ext_cfg_command_af_operation {
+	EXT_CFG_AF_CHECK_STATUS,
+	EXT_CFG_AF_OFF,
+	EXT_CFG_AF_SET_NORMAL,
+	EXT_CFG_AF_SET_MACRO,
+	EXT_CFG_AF_DO,
+	EXT_CFG_AF_SET_MANUAL,
+	EXT_CFG_AF_ABORT,
+	EXT_CFG_AF_CHECK_2nd_STATUS,
+	EXT_CFG_AF_SET_AE_FOR_FLASH,
+	EXT_CFG_AF_BACK_AE_FOR_FLASH,
+	EXT_CFG_AF_CHECK_AE_STATUS,
+	EXT_CFG_AF_POWEROFF,
+};
+
+enum ext_cfg_command_af_status {
+	EXT_CFG_AF_PROGRESS = 1,
+	EXT_CFG_AF_SUCCESS,
+	EXT_CFG_AF_LOWCONF,//Fail
+	EXT_CFG_AF_CANCELED,
+	EXT_CFG_AF_TIMEOUT,
+	EXT_CFG_AE_STABLE,
+	EXT_CFG_AE_UNSTABLE,
+};
+
+enum ext_cfg_command_af_2nd_status {
+    EXT_CFG_AF_2ND_DONE=0,
+    EXT_CFG_AF_2ND_PROGRESS=256,
+};
+
+enum ext_cfg_command_ae_awb {
+	EXT_CFG_AE_LOCK,
+	EXT_CFG_AE_UNLOCK,
+	EXT_CFG_AWB_LOCK,
+	EXT_CFG_AWB_UNLOCK,
+	EXT_CFG_AE_AWB_LOCK,
+	EXT_CFG_AE_AWB_UNLOCK,
+};
+
+enum ext_cfg_command_cpu_policy {
+	EXT_CFG_CPU_CONSERVATIVE,
+	EXT_CFG_CPU_ONDEMAND,
+	EXT_CFG_CPU_PERFORMANCE,
+};
+
+enum ext_cfg_command_dtp {
+	EXT_CFG_DTP_OFF,
+	EXT_CFG_DTP_ON,
+};
+
+enum ext_cfg_command_zoom {
+	EXT_CFG_ZOOM_STEP_0,
+	EXT_CFG_ZOOM_STEP_1,
+	EXT_CFG_ZOOM_STEP_2,
+	EXT_CFG_ZOOM_STEP_3,
+	EXT_CFG_ZOOM_STEP_4,
+	EXT_CFG_ZOOM_STEP_5,
+	EXT_CFG_ZOOM_STEP_6,
+	EXT_CFG_ZOOM_STEP_7,
+	EXT_CFG_ZOOM_STEP_8,
+};
+
+enum ext_cfg_command_picture_size {
+	EXT_CFG_SNAPSHOT_SIZE_2560x1920_5M,
+	EXT_CFG_SNAPSHOT_SIZE_2560x1536_4M_WIDE,
+	EXT_CFG_SNAPSHOT_SIZE_2048x1536_3M,
+	EXT_CFG_SNAPSHOT_SIZE_2048x1232_2_4M_WIDE,
+	EXT_CFG_SNAPSHOT_SIZE_1600x1200_2M,
+	EXT_CFG_SNAPSHOT_SIZE_1600x960_1_5M_WIDE,
+	EXT_CFG_SNAPSHOT_SIZE_1280x960_1M,
+	EXT_CFG_SNAPSHOT_SIZE_1024x768_8K,
+	EXT_CFG_SNAPSHOT_SIZE_800x480_4K_WIDE,
+	EXT_CFG_SNAPSHOT_SIZE_640x480_VGA,
+//	EXT_CFG_SNAPSHOT_SIZE_320x240_QVGA,
+};
+
+enum ext_cfg_command_preview_size {
+    EXT_CFG_PREVIEW_SIZE_1280x720_D1,
+	EXT_CFG_PREVIEW_SIZE_800x480_WVGA,
+	EXT_CFG_PREVIEW_SIZE_720x480_D1,
+	EXT_CFG_PREVIEW_SIZE_640x480_VGA,
+	EXT_CFG_PREVIEW_SIZE_320x240_QVGA,
+	EXT_CFG_PREVIEW_SIZE_176x144_QCIF,
+};
+
+enum ext_cfg_command_flash {
+	EXT_CFG_FLASH_OFF,
+	EXT_CFG_FLASH_AUTO,
+	EXT_CFG_FLASH_ON,
+	EXT_CFG_FLASH_TORCH,
+/*	//kk0704.park
+	EXT_CFG_FLASH_ON,
+	EXT_CFG_FLASH_OFF,
+	EXT_CFG_FLASH_AUTO,
+	EXT_CFG_FLASH_TURN_ON,
+	EXT_CFG_FLASH_TURN_OFF,
+	EXT_CFG_FLASH_TORCH,
+*/
+};
+
+enum ext_cfg_command_pretty {
+	EXT_CFG_PRETTY_LEVEL_0,
+	EXT_CFG_PRETTY_LEVEL_1,
+	EXT_CFG_PRETTY_LEVEL_2,
+	EXT_CFG_PRETTY_LEVEL_3,
+};
+
+enum ext_cfg_command_mode {
+	EXT_CFG_CAMERA_MODE,
+	EXT_CFG_CAMCORDER_MODE,
+};
+#endif /* CONFIG_OEM_CAMERA */
 
 #define V4L2_SINGLE_PLANE	0
 #define V4L2_MULTI_PLANE_Y	0
@@ -1749,4 +2161,3 @@ struct msm_camera_v4l2_ioctl_t {
 };
 
 #endif /* __LINUX_MSM_CAMERA_H */
-#endif /* CONFIG_MSM_CAMERA_LEGACY */

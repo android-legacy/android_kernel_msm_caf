@@ -1,3 +1,4 @@
+
 #ifndef _SEC_CAM_PMIC_H
 #define _SEC_CAM_PMIC_H
 #include "msm_sensor.h"
@@ -28,6 +29,35 @@
 #endif
 #endif
 
+
+#if defined (CONFIG_MACH_ARUBA_OPEN) || defined (CONFIG_MACH_ARUBASLIM_OPEN)	// temperary setting
+#define ARUBA_CAM_IO_EN	4
+#define ARUBA_CAM_C_EN		107
+#define ARUBA_CAM_AF_EN	49
+#define ARUBA_CAM_STBY		96
+#define ARUBA_CAM_RESET	85
+#define ARUBA_CAM_FLASH_EN	58
+extern unsigned int board_hw_revision;
+#define ARUBA_CAM_FLASH_SET	5
+#define ARUBA_CAM_FLASH_SET_OLD	86
+#define ARUBA_CAM_A_EN	4
+#else	//CONFIG_MACH_ARUBA_OPEN
+#define ARUBA_CAM_A_EN	128
+#if defined (CONFIG_S5K4ECGX)
+#define ARUBA_CAM_C_EN	107
+#define ARUBA_CAM_AF_EN	129
+#define ARUBA_CAM_FLASH_EN	14
+#define ARUBA_CAM_FLASH_SET	11
+#endif
+#define ARUBA_CAM_STBY		96
+#define ARUBA_CAM_RESET	85
+#if defined (CONFIG_MACH_BAFFIN_DUOS_CTC)
+#define FRONT_CAM_C_EN	73
+#define FRONT_CAM_STBY 75
+#define FRONT_CAM_RESET	80
+#endif	//CONFIG_MACH_ARUBA_OPEN
+#endif
+
 void cam_ldo_power_on_1(void);
 void cam_ldo_power_on_2(void);
 void cam_ldo_power_off_1(void);
@@ -45,8 +75,9 @@ int32_t msm_sensor_power_down_baffin_duos(struct msm_sensor_ctrl_t *s_ctrl);
 #endif
 
 
-#if defined (CONFIG_MACH_GPIO_3M_OPEN) || defined (CONFIG_MACH_ARUBASLIM_OPEN)
+#if defined (CONFIG_MACH_ARUBA_OPEN) || defined (CONFIG_MACH_ARUBASLIM_OPEN)
 int32_t msm_sensor_power_up_aruba_open(struct msm_sensor_ctrl_t *s_ctrl);
 int32_t msm_sensor_power_down_aruba_open(struct msm_sensor_ctrl_t *s_ctrl);
 #endif
 #endif
+

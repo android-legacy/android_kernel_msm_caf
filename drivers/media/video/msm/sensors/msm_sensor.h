@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,7 +106,7 @@ struct msm_sensor_v4l2_ctrl_info_t {
 	int16_t min;
 	int16_t max;
 	int16_t step;
-        int16_t current_value;
+	int16_t current_value;
 	struct msm_camera_i2c_enum_conf_array *enum_cfg_settings;
 	int (*s_v4l2_ctrl) (struct msm_sensor_ctrl_t *,
 		struct msm_sensor_v4l2_ctrl_info_t *, int);
@@ -149,6 +149,9 @@ struct msm_sensor_fn_t {
 		int32_t *);
 	int32_t (*sensor_pip_set_mode)(struct msm_sensor_ctrl_t *,
 		int32_t);
+#if defined(CONFIG_S5K4ECGX)
+	int (*sensor_get_flash_status)();
+#endif
 };
 
 struct msm_sensor_csi_info {

@@ -1273,6 +1273,12 @@ enum v4l2_colorfx {
 
 #define V4L2_CID_ALPHA_COMPONENT		(V4L2_CID_BASE+41)
 
+// tmp add
+#define V4L2_CID_SCENE                          (V4L2_CID_BASE+46)
+#define V4L2_CID_METER                          (V4L2_CID_BASE+47)
+#define V4L2_CID_AF_MODE                        (V4L2_CID_BASE+48)
+#define V4L2_CID_FPS                            (V4L2_CID_BASE+49)
+
 /* last CID + 1 */
 #define V4L2_CID_LASTP1                         (V4L2_CID_BASE+42)
 #define V4L2_CID_SPECIAL_EFFECT			(V4L2_CID_BASE+43)
