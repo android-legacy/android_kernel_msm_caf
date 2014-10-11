@@ -1112,6 +1112,17 @@ static const struct snd_kcontrol_new tapan_common_snd_controls[] = {
 	SOC_ENUM_EXT("EAR PA Gain", tapan_ear_pa_gain_enum[0],
 		tapan_pa_gain_get, tapan_pa_gain_put),
 
+	#if 0  // BAM_S C 130811 B161 B2123
+	SOC_SINGLE_TLV("HPHL Volume", TAPAN_A_RX_HPH_L_GAIN, 0, 14, 1,
+		line_gain),
+	SOC_SINGLE_TLV("HPHR Volume", TAPAN_A_RX_HPH_R_GAIN, 0, 14, 1,
+		line_gain),
+
+	SOC_SINGLE_TLV("LINEOUT1 Volume", TAPAN_A_RX_LINE_1_GAIN, 0, 14, 1,
+		line_gain),
+	SOC_SINGLE_TLV("LINEOUT2 Volume", TAPAN_A_RX_LINE_2_GAIN, 0, 14, 1,
+		line_gain),
+	#else
 	SOC_SINGLE_TLV("HPHL Volume", TAPAN_A_RX_HPH_L_GAIN, 0, 20, 1,
 		line_gain),
 	SOC_SINGLE_TLV("HPHR Volume", TAPAN_A_RX_HPH_R_GAIN, 0, 20, 1,
@@ -1121,7 +1132,7 @@ static const struct snd_kcontrol_new tapan_common_snd_controls[] = {
 		line_gain),
 	SOC_SINGLE_TLV("LINEOUT2 Volume", TAPAN_A_RX_LINE_2_GAIN, 0, 20, 1,
 		line_gain),
-
+	#endif
 	SOC_SINGLE_TLV("SPK DRV Volume", TAPAN_A_SPKR_DRV_GAIN, 3, 8, 1,
 		line_gain),
 
@@ -1344,9 +1355,6 @@ static const struct soc_enum rx3_mix1_inp1_chain_enum =
 static const struct soc_enum rx3_mix1_inp2_chain_enum =
 	SOC_ENUM_SINGLE(TAPAN_A_CDC_CONN_RX3_B1_CTL, 4, 13, rx_3_4_mix1_text);
 
-static const struct soc_enum rx3_mix1_inp3_chain_enum =
-	SOC_ENUM_SINGLE(TAPAN_A_CDC_CONN_RX3_B2_CTL, 0, 13, rx_3_4_mix1_text);
-
 static const struct soc_enum rx4_mix1_inp1_chain_enum =
 	SOC_ENUM_SINGLE(TAPAN_A_CDC_CONN_RX4_B1_CTL, 0, 13, rx_3_4_mix1_text);
 
@@ -1444,9 +1452,6 @@ static const struct snd_kcontrol_new rx3_mix1_inp1_mux =
 
 static const struct snd_kcontrol_new rx3_mix1_inp2_mux =
 	SOC_DAPM_ENUM("RX3 MIX1 INP2 Mux", rx3_mix1_inp2_chain_enum);
-
-static const struct snd_kcontrol_new rx3_mix1_inp3_mux =
-	SOC_DAPM_ENUM("RX3 MIX1 INP3 Mux", rx3_mix1_inp3_chain_enum);
 
 static const struct snd_kcontrol_new rx4_mix1_inp1_mux =
 	SOC_DAPM_ENUM("RX4 MIX1 INP1 Mux", rx4_mix1_inp1_chain_enum);
@@ -2292,23 +2297,16 @@ static int tapan_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 }
 
 /* called under codec_resource_lock acquisition */
-static int tapan_enable_mbhc_micbias(struct snd_soc_codec *codec, bool enable,
-				     enum wcd9xxx_micbias_num micb_num)
+static int tapan_enable_mbhc_micbias(struct snd_soc_codec *codec, bool enable)
 {
 	int rc;
-	const char *micbias;
-
-	if (micb_num == MBHC_MICBIAS2)
-		micbias = DAPM_MICBIAS2_EXTERNAL_STANDALONE;
-	else
-		return -EINVAL;
 
 	if (enable)
 		rc = snd_soc_dapm_force_enable_pin(&codec->dapm,
-						   micbias);
+					     DAPM_MICBIAS2_EXTERNAL_STANDALONE);
 	else
 		rc = snd_soc_dapm_disable_pin(&codec->dapm,
-					      micbias);
+					     DAPM_MICBIAS2_EXTERNAL_STANDALONE);
 	if (!rc)
 		snd_soc_dapm_sync(&codec->dapm);
 	pr_debug("%s: leave ret %d\n", __func__, rc);
@@ -2499,29 +2497,6 @@ static int tapan_codec_enable_vdd_spkr(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	}
-	return 0;
-}
-
-static int tapan_codec_rx_dem_select(struct snd_soc_dapm_widget *w,
-			struct snd_kcontrol *kcontrol, int event)
-{
-
-	struct snd_soc_codec *codec = w->codec;
-
-	pr_debug("%s %d %s\n", __func__, event, w->name);
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		if (codec_ver == WCD9306)
-			snd_soc_update_bits(codec, TAPAN_A_CDC_RX2_B6_CTL,
-					    1 << 5, 1 << 5);
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		if (codec_ver == WCD9306)
-			snd_soc_update_bits(codec, TAPAN_A_CDC_RX2_B6_CTL,
-					    1 << 5, 0);
-		break;
-	}
-
 	return 0;
 }
 
@@ -4122,12 +4097,6 @@ static int tapan_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 
 	core = dev_get_drvdata(codec->dev->parent);
 
-	if(core == NULL) {
-		dev_err(codec->dev, "%s: core is null\n",
-				__func__);
-		return -EINVAL;
-	}
-
 	dev_dbg(codec->dev, "%s: event called! codec name %s\n",
 		__func__, w->codec->name);
 	dev_dbg(codec->dev, "%s: num_dai %d stream name %s event %d\n",
@@ -4143,7 +4112,6 @@ static int tapan_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		dai->bus_down_in_recovery = false;
 		(void) tapan_codec_enable_slim_chmask(dai, true);
 		ret = wcd9xxx_cfg_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
 					      dai->rate, dai->bit_width,
@@ -4152,8 +4120,7 @@ static int tapan_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
 						dai->grph);
-		if (!dai->bus_down_in_recovery)
-			ret = tapan_codec_enable_slim_chmask(dai, false);
+		ret = tapan_codec_enable_slim_chmask(dai, false);
 		if (ret < 0) {
 			ret = wcd9xxx_disconnect_port(core,
 						      &dai->wcd9xxx_ch_list,
@@ -4168,7 +4135,6 @@ static int tapan_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			pm_runtime_put(core->dev->parent);
 			dev_dbg(codec->dev, "%s: unvote requested", __func__);
 		}
-		dai->bus_down_in_recovery = false;
 		break;
 	}
 	return ret;
@@ -4200,7 +4166,6 @@ static int tapan_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	dai = &tapan_p->dai[w->shift];
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		dai->bus_down_in_recovery = false;
 		(void) tapan_codec_enable_slim_chmask(dai, true);
 		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
 					      dai->rate, dai->bit_width,
@@ -4209,8 +4174,7 @@ static int tapan_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
 						dai->grph);
-		if (!dai->bus_down_in_recovery)
-			ret = tapan_codec_enable_slim_chmask(dai, false);
+		ret = tapan_codec_enable_slim_chmask(dai, false);
 		if (ret < 0) {
 			ret = wcd9xxx_disconnect_port(core,
 						      &dai->wcd9xxx_ch_list,
@@ -4225,7 +4189,6 @@ static int tapan_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 			pm_runtime_put(core->dev->parent);
 			dev_dbg(codec->dev, "%s: unvote requested", __func__);
 		}
-		dai->bus_down_in_recovery = false;
 		break;
 	}
 	return ret;
@@ -4529,7 +4492,7 @@ static const struct snd_soc_dapm_widget tapan_common_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("RX3 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx3_mix1_inp2_mux),
 	SND_SOC_DAPM_MUX("RX3 MIX1 INP3", SND_SOC_NOPM, 0, 0,
-		&rx3_mix1_inp3_mux),
+		&rx3_mix1_inp2_mux),
 
 	/* RX1 MIX2 mux inputs */
 	SND_SOC_DAPM_MUX("RX1 MIX2 INP1", SND_SOC_NOPM, 0, 0,
@@ -4558,10 +4521,8 @@ static const struct snd_soc_dapm_widget tapan_common_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MIXER("RX1 CHAIN", TAPAN_A_CDC_RX1_B6_CTL, 5, 0,
 						NULL, 0),
-
-	SND_SOC_DAPM_MIXER_E("RX2 CHAIN", SND_SOC_NOPM, 0, 0, NULL,
-		0, tapan_codec_rx_dem_select, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MIXER("RX2 CHAIN", TAPAN_A_CDC_RX2_B6_CTL, 5, 0,
+						NULL, 0),
 
 	SND_SOC_DAPM_MUX_E("CLASS_H_DSM MUX", SND_SOC_NOPM, 0, 0,
 		&class_h_dsm_mux, tapan_codec_dsm_mux_event,
@@ -5061,7 +5022,7 @@ static const struct tapan_reg_mask_val tapan_reg_defaults[] = {
 
 	/* RX1 and RX2 defaults */
 	TAPAN_REG_VAL(TAPAN_A_CDC_RX1_B6_CTL, 0xA0),
-	TAPAN_REG_VAL(TAPAN_A_CDC_RX2_B6_CTL, 0x80),
+	TAPAN_REG_VAL(TAPAN_A_CDC_RX2_B6_CTL, 0xA0),
 
 	/* Heaset set Right from RX2 */
 	TAPAN_REG_VAL(TAPAN_A_CDC_CONN_RX2_B2_CTL, 0x10),
@@ -5704,7 +5665,6 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	int rco_clk_rate;
 	struct snd_soc_codec *codec;
 	struct tapan_priv *tapan;
-	int count;
 
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	tapan = snd_soc_codec_get_drvdata(codec);
@@ -5761,9 +5721,6 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	tapan->machine_codec_event_cb(codec, WCD9XXX_CODEC_EVENT_CODEC_UP);
 
-	for (count = 0; count < NUM_CODEC_DAIS; count++)
-		tapan->dai[count].bus_down_in_recovery = true;
-
 	mutex_unlock(&codec->mutex);
 	return ret;
 }
@@ -5787,17 +5744,7 @@ static struct regulator *tapan_codec_find_regulator(
 	const char *name)
 {
 	int i;
-	struct wcd9xxx *core = NULL;
-
-	if (codec == NULL) {
-		dev_err(codec->dev, "%s: codec not initialized\n", __func__);
-		return NULL;
-	}
-	core = dev_get_drvdata(codec->dev->parent);
-	if (core == NULL) {
-		dev_err(codec->dev, "%s: core not initialized\n", __func__);
-		return NULL;
-	}
+	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
 
 	for (i = 0; i < core->num_of_supplies; i++) {
 		if (core->supplies[i].supply &&

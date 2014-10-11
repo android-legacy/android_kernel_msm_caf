@@ -456,10 +456,8 @@ static int msm_otg_link_clk_reset(struct msm_otg *motg, bool assert)
 			dev_dbg(motg->phy.dev, "block_reset DEASSERT\n");
 			ret = clk_reset(motg->core_clk, CLK_RESET_DEASSERT);
 			ndelay(200);
-			ret = clk_prepare_enable(motg->core_clk);
-			WARN(ret, "USB core_clk enable failed\n");
-			ret = clk_prepare_enable(motg->pclk);
-			WARN(ret, "USB pclk enable failed\n");
+			clk_prepare_enable(motg->core_clk);
+			clk_prepare_enable(motg->pclk);
 		}
 		if (ret)
 			dev_err(motg->phy.dev, "usb hs_clk deassert failed\n");
@@ -1170,10 +1168,8 @@ static int msm_otg_resume(struct msm_otg *motg)
 	}
 
 	if (motg->lpm_flags & CLOCKS_DOWN) {
-		ret = clk_prepare_enable(motg->core_clk);
-		WARN(ret, "USB core_clk enable failed\n");
-		ret = clk_prepare_enable(motg->pclk);
-		WARN(ret, "USB pclk enable failed\n");
+		clk_prepare_enable(motg->core_clk);
+		clk_prepare_enable(motg->pclk);
 		motg->lpm_flags &= ~CLOCKS_DOWN;
 	}
 
@@ -1381,16 +1377,6 @@ psy_error:
 	return -ENXIO;
 }
 
-static void msm_otg_set_online_status(struct msm_otg *motg)
-{
-	if (!psy)
-		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
-
-	/* Set power supply online status to false */
-	if (power_supply_set_online(psy, false))
-		dev_dbg(motg->phy.dev, "error setting power supply property\n");
-}
-
 static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 {
 	struct usb_gadget *g = motg->phy.otg->gadget;
@@ -1409,13 +1395,6 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 		dev_err(motg->phy.dev,
 			"Failed notifying %d charger type to PMIC\n",
 							motg->chg_type);
-
-	/*
-	 * This condition will be true when usb cable is disconnected
-	 * during bootup before charger detection mechanism starts.
-	 */
-	if (motg->online && motg->cur_power == 0  && mA == 0)
-		msm_otg_set_online_status(motg);
 
 	if (motg->cur_power == mA)
 		return;
@@ -2543,15 +2522,12 @@ static void msm_otg_wait_for_ext_chg_done(struct msm_otg *motg)
 
 	if (motg->ext_chg_active) {
 
-do_wait:
 		pr_debug("before msm_otg ext chg wait\n");
 
 		t = wait_for_completion_timeout(&motg->ext_chg_wait,
 				msecs_to_jiffies(3000));
 		if (!t)
 			pr_err("msm_otg ext chg wait timeout\n");
-		else if (motg->ext_chg_active)
-			goto do_wait;
 		else
 			pr_debug("msm_otg ext chg wait done\n");
 	}
@@ -2705,7 +2681,6 @@ static void msm_otg_sm_work(struct work_struct *w)
 				/* Turn off VDP_SRC */
 				ulpi_write(otg->phy, 0x2, 0x86);
 			}
-			msm_chg_block_off(motg);
 			msm_otg_reset(otg->phy);
 			/*
 			 * There is a small window where ID interrupt
@@ -4054,7 +4029,6 @@ msm_otg_ext_chg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pr_debug("%s: LPM block request %d\n", __func__, val);
 		if (val) { /* block LPM */
 			if (motg->chg_type == USB_DCP_CHARGER) {
-				motg->ext_chg_active = true;
 				/*
 				 * If device is already suspended, resume it.
 				 * The PM usage counter is incremented in
@@ -4100,18 +4074,6 @@ msm_otg_ext_chg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			pr_debug("%s:voltage request successful\n", __func__);
 		else
 			pr_debug("%s:voltage request failed\n", __func__);
-		break;
-	case MSM_USB_EXT_CHG_TYPE:
-		if (get_user(val, (int __user *)arg)) {
-			pr_err("%s: get_user failed\n\n", __func__);
-			ret = -EFAULT;
-			break;
-		}
-
-		if (val)
-			pr_debug("%s:charger is external charger\n", __func__);
-		else
-			pr_debug("%s:charger is not ext charger\n", __func__);
 		break;
 	default:
 		ret = -EINVAL;

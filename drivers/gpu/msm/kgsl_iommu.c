@@ -649,13 +649,9 @@ static int kgsl_iommu_pt_equal(struct kgsl_mmu *mmu,
 	domain_ptbase = iommu_get_pt_base_addr(iommu_pt->domain)
 			& KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 
-	/* Only compare the valid address bits of the pt_base */
-	domain_ptbase &= KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-
 	pt_base &= KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 
 	return (domain_ptbase == pt_base);
-
 }
 
 /*
@@ -1051,10 +1047,6 @@ inline unsigned int kgsl_iommu_sync_lock(struct kgsl_mmu *mmu,
 	*cmds++ = 0x1;
 	*cmds++ = 0x1;
 
-	/* WAIT_REG_MEM turns back on protected mode - push it off */
-	*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
-	*cmds++ = 0;
-
 	*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
 	*cmds++ = lock_vars->turn;
 	*cmds++ = 0;
@@ -1069,17 +1061,9 @@ inline unsigned int kgsl_iommu_sync_lock(struct kgsl_mmu *mmu,
 	*cmds++ = 0x1;
 	*cmds++ = 0x1;
 
-	/* WAIT_REG_MEM turns back on protected mode - push it off */
-	*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
-	*cmds++ = 0;
-
 	*cmds++ = cp_type3_packet(CP_TEST_TWO_MEMS, 3);
 	*cmds++ = lock_vars->flag[PROC_APPS];
 	*cmds++ = lock_vars->turn;
-	*cmds++ = 0;
-
-	/* TEST_TWO_MEMS turns back on protected mode - push it off */
-	*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
 	*cmds++ = 0;
 
 	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
@@ -1118,10 +1102,6 @@ inline unsigned int kgsl_iommu_sync_unlock(struct kgsl_mmu *mmu,
 	*cmds++ = 0x0;
 	*cmds++ = 0x1;
 	*cmds++ = 0x1;
-
-	/* WAIT_REG_MEM turns back on protected mode - push it off */
-	*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
-	*cmds++ = 0;
 
 	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
 
@@ -1774,7 +1754,7 @@ static void kgsl_iommu_flush_tlb_pt_current(struct kgsl_pagetable *pt)
 	 * If it does not, then take the device mutex which is required for
 	 * flushing the tlb
 	 */
-	if (kgsl_mutex_lock(&device->mutex, &device->mutex_owner))
+	if (!kgsl_mutex_lock(&device->mutex, &device->mutex_owner))
 		lock_taken = 1;
 
 	/*
@@ -1864,7 +1844,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	}
 
 	/*
-	 *  IOMMU BFBs pre-fetch data beyond what is being used by the core.
+	 *  IOMMU V1 BFBs pre-fetch data beyond what is being used by the core.
 	 *  This can include both allocated pages and un-allocated pages.
 	 *  If an un-allocated page is cached, and later used (if it has been
 	 *  newly dynamically allocated by SW) the SMMU HW should automatically
@@ -1875,11 +1855,9 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	 *  bus errors, or upstream cores being hung (because of garbage data
 	 *  being read) -> causing TLB sync stuck issues. As a result SW must
 	 *  implement the invalidate+map.
-	 *
-	 *  FUTURE TODO: This invalidate on map requirement will be removed
-	 *  in future chips. Check and remove.
 	 */
-	kgsl_iommu_flush_tlb_pt_current(pt);
+	if (!msm_soc_version_supports_iommu_v0())
+		kgsl_iommu_flush_tlb_pt_current(pt);
 
 	return ret;
 }

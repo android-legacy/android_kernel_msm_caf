@@ -134,7 +134,6 @@ struct msm_mdp_interface {
 	int (*splash_fnc) (struct msm_fb_data_type *mfd, int *index, int req);
 	struct msm_sync_pt_data *(*get_sync_fnc)(struct msm_fb_data_type *mfd,
 				const struct mdp_buf_sync *buf_sync);
-	void (*check_dsi_status)(struct work_struct *work, uint32_t interval);
 	void *private1;
 };
 
@@ -170,9 +169,6 @@ struct msm_fb_data_type {
 	u32 dest;
 	struct fb_info *fbi;
 
-	int idle_time;
-	struct delayed_work idle_notify_work;
-
 	int op_enable;
 	u32 fb_imgType;
 	int panel_reconfig;
@@ -195,8 +191,7 @@ struct msm_fb_data_type {
 	u32 bl_min_lvl;
 	u32 unset_bl_level;
 	u32 bl_updated;
-	u32 bl_level_scaled;
-	u32 bl_level_prev_scaled;
+	u32 bl_level_old;
 	struct mutex bl_lock;
 	struct mutex lock;
 
@@ -215,17 +210,12 @@ struct msm_fb_data_type {
 	/* for non-blocking */
 	struct task_struct *disp_thread;
 	atomic_t commits_pending;
-	atomic_t kickoff_pending;
 	wait_queue_head_t commit_wait_q;
 	wait_queue_head_t idle_wait_q;
-	wait_queue_head_t kickoff_wait_q;
 	bool shutdown_pending;
 
 	struct task_struct *splash_thread;
 	bool splash_logo_enabled;
-
-	wait_queue_head_t ioctl_q;
-	atomic_t ioctl_ref_cnt;
 
 	struct msm_fb_backup_type msm_fb_backup;
 	struct completion power_set_comp;
@@ -233,7 +223,6 @@ struct msm_fb_data_type {
 
 	u32 dcm_state;
 	struct list_head proc_list;
-	u32 wait_for_kickoff;
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
@@ -264,5 +253,4 @@ struct sync_fence *mdss_fb_sync_get_fence(struct sw_sync_timeline *timeline,
 				const char *fence_name, int val);
 int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp);
 int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state);
-int mdss_fb_suspres_panel(struct device *dev, void *data);
 #endif /* MDSS_FB_H */

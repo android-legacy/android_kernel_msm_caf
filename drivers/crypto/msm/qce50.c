@@ -223,14 +223,12 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 	pce_dev->ce_sps.ce_burst_size = MAX_CE_BAM_BURST_SIZE;
 
 	dev_info(pce_dev->pdev,
-			"CE device = 0x%x\n, "
 			"IO base, CE = 0x%x\n, "
 			"Consumer (IN) PIPE %d,    "
 			"Producer (OUT) PIPE %d\n"
 			"IO base BAM = 0x%x\n"
 			"BAM IRQ %d\n"
 			"Engines Availability = 0x%x\n",
-			(uint32_t) pce_dev->ce_sps.ce_device,
 			(uint32_t) pce_dev->iobase,
 			pce_dev->ce_sps.dest_pipe_index,
 			pce_dev->ce_sps.src_pipe_index,
@@ -4761,9 +4759,9 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 	if (_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
 						 &pce_dev->ce_sps.in_transfer))
 		goto bad;
-	if (areq->nbytes)
-		_qce_set_flag(&pce_dev->ce_sps.in_transfer,
-					SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
+	_qce_set_flag(&pce_dev->ce_sps.in_transfer,
+				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
+
 	if (_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
 					  &pce_dev->ce_sps.out_transfer))
@@ -5118,15 +5116,6 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 	} else {
 		pr_warn("bam_pipe_pair=0x%x", pce_dev->ce_sps.pipe_pair_index);
 	}
-	if (of_property_read_u32((&pdev->dev)->of_node,
-				"qcom,ce-device",
-				&pce_dev->ce_sps.ce_device)) {
-		pr_err("Fail to get CE device information.\n");
-		return -EINVAL;
-	} else {
-		pr_warn("ce-device =0x%x", pce_dev->ce_sps.ce_device);
-	}
-
 	pce_dev->ce_sps.dest_pipe_index	= 2 * pce_dev->ce_sps.pipe_pair_index;
 	pce_dev->ce_sps.src_pipe_index	= pce_dev->ce_sps.dest_pipe_index + 1;
 
@@ -5464,7 +5453,6 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 				pce_dev->use_sw_hmac_algo;
 	ce_support->use_sw_aes_ccm_algo =
 				pce_dev->use_sw_aes_ccm_algo;
-	ce_support->ce_device = pce_dev->ce_sps.ce_device;
 	return 0;
 }
 EXPORT_SYMBOL(qce_hw_support);

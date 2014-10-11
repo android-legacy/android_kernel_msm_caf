@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +68,8 @@ enum msm_isp_camif_update_state {
 	NO_UPDATE,
 	ENABLE_CAMIF,
 	DISABLE_CAMIF,
-	DISABLE_CAMIF_IMMEDIATELY
+	DISABLE_CAMIF_IMMEDIATELY,
+	DISABLE_CAMIF_IMMEDIATELY_VFE_RECOVER /*QCT patch 20140627 Add*/
 };
 
 enum msm_isp_reset_type {
@@ -148,13 +149,13 @@ struct msm_vfe_axi_ops {
 	uint32_t (*get_wm_mask) (uint32_t irq_status0, uint32_t irq_status1);
 	uint32_t (*get_comp_mask) (uint32_t irq_status0, uint32_t irq_status1);
 	uint32_t (*get_pingpong_status) (struct vfe_device *vfe_dev);
-	long (*halt) (struct vfe_device *vfe_dev);
+	long (*halt) (struct vfe_device *vfe_dev, uint32_t blocking);/*QCT patch 20140627 modify*/
 };
 
 struct msm_vfe_core_ops {
 	void (*reg_update) (struct vfe_device *vfe_dev);
 	long (*reset_hw) (struct vfe_device *vfe_dev,
-		enum msm_isp_reset_type reset_type);
+			enum msm_isp_reset_type reset_type, uint32_t blocking);/*QCT patch 20140627 modify*/
 	int (*init_hw) (struct vfe_device *vfe_dev);
 	void (*init_hw_reg) (struct vfe_device *vfe_dev);
 	void (*release_hw) (struct vfe_device *vfe_dev);
@@ -167,7 +168,13 @@ struct msm_vfe_core_ops {
 		enum msm_vfe_input_src input_src);
 	int (*get_platform_data) (struct vfe_device *vfe_dev);
 	void (*get_error_mask) (uint32_t *error_mask0, uint32_t *error_mask1);
-	void (*process_error_status) (struct vfe_device *vfe_dev);
+	void (*process_error_status) (struct vfe_device *vfe_dev);/*QCT patch 20140627 add*/
+	void (*get_overflow_mask) (uint32_t *overflow_mask);/*QCT patch 20140627 add*/
+	void (*get_irq_mask) (struct vfe_device *vfe_dev,
+		uint32_t *irq0_mask, uint32_t *irq1_mask);/*QCT patch 20140627 add*/
+	void (*restore_irq_mask) (struct vfe_device *vfe_dev);/*QCT patch 20140627 add*/
+	void (*get_halt_restart_mask) (uint32_t *irq0_mask,
+		uint32_t *irq1_mask);/*QCT patch 20140627 add*/
 };
 struct msm_vfe_stats_ops {
 	int (*get_stats_idx) (enum msm_isp_stats_type stats_type);
@@ -279,6 +286,7 @@ struct msm_vfe_axi_stream {
 	enum msm_vfe_axi_stream_type stream_type;
 	uint32_t vt_enable;
 	uint32_t frame_based;
+	enum msm_vfe_frame_skip_pattern frame_skip_pattern; /*QCT patch 20140627 add*/
 	uint32_t framedrop_period;
 	uint32_t framedrop_pattern;
 	uint32_t num_burst_capture;/*number of frame to capture*/
@@ -315,7 +323,6 @@ struct msm_vfe_src_info {
 	uint32_t width;
 	long pixel_clock;
 	uint32_t input_format;/*V4L2 pix format with bayer pattern*/
-	uint32_t last_updt_frm_id;
 };
 
 enum msm_wm_ub_cfg_type {
@@ -382,7 +389,6 @@ struct msm_vfe_stats_shared_data {
 	atomic_t stats_comp_mask;
 	uint16_t stream_handle_cnt;
 	atomic_t stats_update;
-	uint32_t stats_mask;
 };
 
 struct msm_vfe_tasklet_queue_cmd {
@@ -394,8 +400,20 @@ struct msm_vfe_tasklet_queue_cmd {
 };
 
 #define MSM_VFE_TASKLETQ_SIZE 200
-
+/*QCT patch S 20140627 add*/
+enum msm_vfe_overflow_state {
+	NO_OVERFLOW,
+	OVERFLOW_DETECTED,
+	HALT_REQUESTED,
+	RESTART_REQUESTED,
+};
+/*QCT patch E 20140627 add*/
 struct msm_vfe_error_info {
+	/*QCT patch S 20140627 add*/
+	atomic_t overflow_state;
+	uint32_t overflow_recover_irq_mask0;
+	uint32_t overflow_recover_irq_mask1;
+	/*QCT patch E 20140627 add*/
 	uint32_t error_mask0;
 	uint32_t error_mask1;
 	uint32_t violation_status;
@@ -404,11 +422,6 @@ struct msm_vfe_error_info {
 	uint32_t stats_framedrop_count[MSM_ISP_STATS_MAX];
 	uint32_t info_dump_frame_count;
 	uint32_t error_count;
-};
-
-struct msm_vfe_frame_ts {
-	struct timeval buf_time;
-	uint32_t frame_id;
 };
 
 struct vfe_device {
@@ -453,7 +466,6 @@ struct vfe_device {
 	struct msm_vfe_axi_shared_data axi_data;
 	struct msm_vfe_stats_shared_data stats_data;
 	struct msm_vfe_error_info error_info;
-	struct msm_vfe_frame_ts frame_ts;
 	struct msm_isp_buf_mgr *buf_mgr;
 	int dump_reg;
 	int vfe_clk_idx;
@@ -461,6 +473,7 @@ struct vfe_device {
 	uint8_t vt_enable;
 	void __iomem *p_avtimer_msw;
 	void __iomem *p_avtimer_lsw;
+	uint8_t ignore_error;
 };
 
 #endif

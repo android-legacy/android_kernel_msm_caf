@@ -23,14 +23,13 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
 #include "mdss_fb.h"
-#include "mdss_debug.h"
 
 #define MAX_ROTATOR_SESSIONS 8
 
 static DEFINE_MUTEX(rotator_lock);
 static struct mdss_mdp_rotator_session rotator_session[MAX_ROTATOR_SESSIONS];
 static LIST_HEAD(rotator_queue);
-
+static u32 count; //20140314 QCT_Patch
 static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot);
 static void mdss_mdp_rotator_commit_wq_handler(struct work_struct *work);
 static int mdss_mdp_rotator_busy_wait(struct mdss_mdp_rotator_session *rot);
@@ -148,6 +147,14 @@ static int mdss_mdp_rotator_kickoff(struct mdss_mdp_ctl *ctl,
 
 	mutex_lock(&rot->lock);
 	rot->busy = true;
+	//20140314 QCT_Patch S
+	/* fRist kickoff change vbif settings */
+	if (!count) {
+	writel_relaxed(0x08010808, mdss_res->vbif_base + 0xB0);
+	writel_relaxed(0x02101010, mdss_res->vbif_base + 0xC0);
+	count++;
+	}
+	//20140314 QCT_Patch E
 	ret = mdss_mdp_writeback_display_commit(ctl, &wb_args);
 	if (ret) {
 		rot->busy = false;
@@ -282,9 +289,8 @@ static int mdss_mdp_rotator_queue_sub(struct mdss_mdp_rotator_session *rot,
 		pr_err("unable to queue rot data\n");
 		goto error;
 	}
-	ATRACE_BEGIN("rotator_kickoff");
+
 	ret = mdss_mdp_rotator_kickoff(rot_ctl, rot, dst_data);
-	ATRACE_END("rotator_kickoff");
 
 	return ret;
 error:
@@ -644,7 +650,7 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 
 	if (rot_pipe) {
 		struct mdss_mdp_mixer *mixer = rot_pipe->mixer;
-		mdss_mdp_pipe_destroy(rot_pipe);
+		mdss_mdp_pipe_unmap(rot_pipe);
 		tmp = mdss_mdp_ctl_mixer_switch(mixer->ctl,
 				MDSS_MDP_WB_CTL_TYPE_BLOCK);
 		if (!tmp)
@@ -652,6 +658,11 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 		else
 			mixer = tmp->mixer_left;
 		mdss_mdp_wb_mixer_destroy(mixer);
+		//20140314 QCT_Patch S
+		writel_relaxed(0x08080808, mdss_res->vbif_base + 0xB0);
+		writel_relaxed(0x10101010, mdss_res->vbif_base + 0xC0);
+		count = 0;
+		//20140314 QCT_Patch E
 	}
 	return ret;
 }
@@ -692,6 +703,7 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 			    struct msmfb_overlay_data *req)
 {
 	struct mdss_mdp_rotator_session *rot;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	int ret;
 	u32 flgs;
 
@@ -710,6 +722,12 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 		pr_err("rotator busy wait error\n");
 		goto dst_buf_fail;
 	}
+
+	if (!mfd->panel_info->cont_splash_enabled)
+		mdss_iommu_attach(mdp5_data->mdata);
+
+	if (!mfd->panel_info->cont_splash_enabled)
+		mdss_iommu_attach(mdp5_data->mdata);
 
 	mdss_mdp_overlay_free_buf(&rot->src_buf);
 	ret = mdss_mdp_overlay_get_buf(mfd, &rot->src_buf, &req->data, 1, flgs);

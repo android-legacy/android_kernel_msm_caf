@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,8 +41,6 @@
 	(~(ping_pong >> (idx + VFE32_STATS_PING_PONG_OFFSET)) & 0x1))
 
 #define VFE32_CLK_IDX 0
-#define MSM_ISP32_TOTAL_WM_UB 792
-
 static struct msm_cam_clk_info msm_vfe32_1_clk_info[] = {
 	/*vfe32 clock info for B-family: 8610 */
 	{"vfe_clk_src", 266670000},
@@ -146,7 +144,6 @@ static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 
 static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
 {
-	uint32_t wm_base, i = 0;
 	/* CGC_OVERRIDE */
 	msm_camera_io_w(0x07FFFFFF, vfe_dev->vfe_base + 0xC);
 	/* BUS_CFG */
@@ -160,12 +157,6 @@ static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w( 0x10000000,vfe_dev->vfe_base + VFE32_RDI_BASE(2));
 	msm_camera_io_w(0x0, vfe_dev->vfe_base + VFE32_XBAR_BASE(0));
 	msm_camera_io_w(0x0, vfe_dev->vfe_base + VFE32_XBAR_BASE(4));
-	for (i = 0; i<=6; i++) {
-		wm_base = VFE32_WM_BASE(i);
-		msm_camera_io_w(0x0, vfe_dev->vfe_base + wm_base);
-		wm_base = VFE32_WM_BASE(i);
-		msm_camera_io_w(0x0, vfe_dev->vfe_base + wm_base);
-	}
 
 }
 
@@ -373,7 +364,7 @@ static uint32_t msm_vfe32_reset_values[ISP_RST_MAX] =
 };
 
 static long msm_vfe32_reset_hardware(struct vfe_device *vfe_dev ,
-				enum msm_isp_reset_type reset_type)
+		enum msm_isp_reset_type reset_type, uint32_t blocking)/*QCT patch 20140627 modify*/
 {
 
 	uint32_t rst_val;
@@ -384,7 +375,7 @@ static long msm_vfe32_reset_hardware(struct vfe_device *vfe_dev ,
 	rst_val = msm_vfe32_reset_values[reset_type];
 	init_completion(&vfe_dev->reset_complete);
 	msm_camera_io_w_mb(rst_val, vfe_dev->vfe_base + 0x4);
-	return wait_for_completion_timeout(
+	return wait_for_completion_interruptible_timeout(
 	   &vfe_dev->reset_complete, msecs_to_jiffies(50));
 }
 
@@ -647,6 +638,11 @@ static void msm_vfe32_update_camif_state(
 	} else if (update_state == DISABLE_CAMIF_IMMEDIATELY) {
 		msm_camera_io_w_mb(0x6, vfe_dev->vfe_base + 0x1E0);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 0;
+		/*QCT patch 20140627 S add*/
+	} else if (update_state == DISABLE_CAMIF_IMMEDIATELY_VFE_RECOVER) {
+		msm_camera_io_w_mb(0x2, vfe_dev->vfe_base + 0x1E0);
+		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 0;
+		/*QCT patch 20140627 E add*/
 	}
 }
 
@@ -796,43 +792,7 @@ static void msm_vfe32_axi_clear_wm_xbar_reg(
 	msm_camera_io_w(xbar_reg_cfg, vfe_dev->vfe_base + VFE32_XBAR_BASE(wm));
 }
 
-static void msm_vfe32_cfg_axi_ub_equal_default(struct vfe_device *vfe_dev)
-{
-	int i;
-	uint32_t ub_offset = 0;
-	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	uint32_t total_image_size = 0;
-	uint32_t num_used_wms = 0;
-	uint32_t prop_size = 0;
-	uint32_t wm_ub_size;
-	uint64_t delta;
-	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
-		if (axi_data->free_wm[i] > 0) {
-			num_used_wms++;
-			total_image_size += axi_data->wm_image_size[i];
-		}
-	}
-	prop_size = MSM_ISP32_TOTAL_WM_UB -
-		axi_data->hw_info->min_wm_ub * num_used_wms;
-	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
-		if (axi_data->free_wm[i]) {
-			delta =
-				(uint64_t)(axi_data->wm_image_size[i] *
-					prop_size);
-			do_div(delta, total_image_size);
-			wm_ub_size = axi_data->hw_info->min_wm_ub +
-				(uint32_t)delta;
-			msm_camera_io_w(ub_offset << 16 |
-				(wm_ub_size - 1), vfe_dev->vfe_base +
-					VFE32_WM_BASE(i) + 0xC);
-			ub_offset += wm_ub_size;
-		} else
-			msm_camera_io_w(0,
-				vfe_dev->vfe_base + VFE32_WM_BASE(i) + 0xC);
-	}
-}
-
-static void msm_vfe32_cfg_axi_ub_equal_slicing(struct vfe_device *vfe_dev)
+static void msm_vfe32_cfg_axi_ub(struct vfe_device *vfe_dev)
 {
 	int i;
 	uint32_t ub_offset = 0;
@@ -854,16 +814,6 @@ static void msm_vfe32_cfg_axi_ub_equal_slicing(struct vfe_device *vfe_dev)
 	}
 }
 
-static void msm_vfe32_cfg_axi_ub(struct vfe_device *vfe_dev)
-{
-	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	axi_data->wm_ub_cfg_policy = MSM_WM_UB_CFG_DEFAULT;
-	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING)
-		msm_vfe32_cfg_axi_ub_equal_slicing(vfe_dev);
-	else
-		msm_vfe32_cfg_axi_ub_equal_default(vfe_dev);
-}
-
 static void msm_vfe32_update_ping_pong_addr(struct vfe_device *vfe_dev,
 		uint8_t wm_idx, uint32_t pingpong_status, unsigned long paddr)
 {
@@ -871,7 +821,7 @@ static void msm_vfe32_update_ping_pong_addr(struct vfe_device *vfe_dev,
 		VFE32_PING_PONG_BASE(wm_idx, pingpong_status));
 }
 
-static long msm_vfe32_axi_halt(struct vfe_device *vfe_dev)
+static long msm_vfe32_axi_halt(struct vfe_device *vfe_dev, uint32_t blocking)/*QCT patch 20140627 modify*/
 {
 	uint32_t halt_mask;
 	uint32_t axi_busy_flag = true;
@@ -1124,7 +1074,6 @@ struct msm_vfe_axi_hardware_info msm_vfe32_axi_hw_info = {
 	.num_comp_mask = 3,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
-	.min_wm_ub = 64,
 };
 
 static struct msm_vfe_stats_hardware_info msm_vfe32_stats_hw_info = {

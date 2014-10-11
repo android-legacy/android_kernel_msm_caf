@@ -4,6 +4,7 @@
  * Copyright (C) 2001 WireX Communications, Inc <chris@wirex.com>
  * Copyright (C) 2001-2002 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2001 Networks Associates Technology, Inc <ssmalley@nai.com>
+ * Copyright (c) 2013 Sony Mobile Communications AB.
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -21,6 +22,9 @@
 #include <linux/evm.h>
 #include <linux/fsnotify.h>
 #include <net/flow.h>
+#if defined(CONFIG_SECURITY_SONY_RIC) && !defined(CONFIG_DEFAULT_SECURITY_SONY)
+#include "sony/ric.h"
+#endif
 
 #define MAX_LSM_EVM_XATTR	2
 
@@ -283,6 +287,13 @@ int security_sb_statfs(struct dentry *dentry)
 int security_sb_mount(char *dev_name, struct path *path,
                        char *type, unsigned long flags, void *data)
 {
+#if defined(CONFIG_SECURITY_SONY_RIC) && !defined(CONFIG_DEFAULT_SECURITY_SONY)
+	int ret;
+
+	ret = sony_ric_mount(dev_name, path, type, flags, data);
+	if (ret)
+		return ret;
+#endif
 	return security_ops->sb_mount(dev_name, path, type, flags, data);
 }
 
@@ -470,16 +481,6 @@ int security_inode_create(struct inode *dir, struct dentry *dentry, umode_t mode
 	return security_ops->inode_create(dir, dentry, mode);
 }
 EXPORT_SYMBOL_GPL(security_inode_create);
-
-int security_inode_post_create(struct inode *dir, struct dentry *dentry,
-			       umode_t mode)
-{
-	if (unlikely(IS_PRIVATE(dir)))
-		return 0;
-	if (security_ops->inode_post_create == NULL)
-		return 0;
-	return security_ops->inode_post_create(dir, dentry, mode);
-}
 
 int security_inode_link(struct dentry *old_dentry, struct inode *dir,
 			 struct dentry *new_dentry)
@@ -740,22 +741,6 @@ int security_dentry_open(struct file *file, const struct cred *cred)
 		return ret;
 
 	return fsnotify_perm(file, MAY_OPEN);
-}
-
-int security_file_close(struct file *file)
-{
-	if (security_ops->file_close)
-		return security_ops->file_close(file);
-
-	return 0;
-}
-
-bool security_allow_merge_bio(struct bio *bio1, struct bio *bio2)
-{
-	if (security_ops->allow_merge_bio)
-		return security_ops->allow_merge_bio(bio1, bio2);
-
-	return true;
 }
 
 int security_task_create(unsigned long clone_flags)
