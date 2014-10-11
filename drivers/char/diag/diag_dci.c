@@ -531,8 +531,7 @@ void diag_dci_notify_client(int peripheral_mask, int data)
 static int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 					 int len, int tag)
 {
-	int i;
-	static int status;
+	int i, status = 0;
 	unsigned int read_len = 0;
 
 	/* The first 4 bytes is the uid tag and the next four bytes is
