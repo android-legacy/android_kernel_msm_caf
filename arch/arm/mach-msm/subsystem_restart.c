@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,12 @@
 #include <mach/subsystem_restart.h>
 
 #include "smd_private.h"
+
+//[VY5x] ==> CCI KLog, added by Jimmy@CCI
+#ifdef CONFIG_CCI_KLOG
+#include <linux/cciklog.h>
+#endif // #ifdef CONFIG_CCI_KLOG
+//[VY5x] <== CCI KLog, added by Jimmy@CCI
 
 static int enable_debug;
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);
@@ -164,6 +170,10 @@ struct subsys_device {
 	struct completion err_ready;
 	bool crashed;
 };
+
+//S [VY52/VY55][bug_1807] frank_chan add
+char work_buf[72];
+//E [VY52/VY55][bug_1807] frank_chan add
 
 static struct subsys_device *to_subsys(struct device *d)
 {
@@ -466,20 +476,13 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 
 	pr_info("[%p]: Powering up %s\n", current, name);
 	init_completion(&dev->err_ready);
-
-	if (dev->desc->powerup(dev->desc) < 0) {
-		notify_each_subsys_device(&dev, 1, SUBSYS_POWERUP_FAILURE,
-								NULL);
+	if (dev->desc->powerup(dev->desc) < 0)
 		panic("[%p]: Powerup error: %s!", current, name);
-	}
 
 	ret = wait_for_err_ready(dev);
-	if (ret) {
-		notify_each_subsys_device(&dev, 1, SUBSYS_POWERUP_FAILURE,
-								NULL);
+	if (ret)
 		panic("[%p]: Timed out waiting for error ready: %s!",
 			current, name);
-	}
 	subsys_set_state(dev, SUBSYS_ONLINE);
 }
 
@@ -507,11 +510,8 @@ static int subsys_start(struct subsys_device *subsys)
 
 	init_completion(&subsys->err_ready);
 	ret = subsys->desc->start(subsys->desc);
-	if (ret){
-		notify_each_subsys_device(&subsys, 1, SUBSYS_POWERUP_FAILURE,
-									NULL);
+	if (ret)
 		return ret;
-	}
 
 	if (subsys->desc->is_not_loadable) {
 		subsys_set_state(subsys, SUBSYS_ONLINE);
@@ -519,14 +519,12 @@ static int subsys_start(struct subsys_device *subsys)
 	}
 
 	ret = wait_for_err_ready(subsys);
-	if (ret) {
+	if (ret)
 		/* pil-boot succeeded but we need to shutdown
 		 * the device because error ready timed out.
 		 */
-		notify_each_subsys_device(&subsys, 1, SUBSYS_POWERUP_FAILURE,
-									NULL);
 		subsys->desc->stop(subsys->desc);
-	} else
+	else
 		subsys_set_state(subsys, SUBSYS_ONLINE);
 
 	return ret;
@@ -769,6 +767,30 @@ int subsystem_restart_dev(struct subsys_device *dev)
 
 	pr_info("Restart sequence requested for %s, restart_level = %s.\n",
 		name, restart_levels[dev->restart_level]);
+
+//S [VY52/VY55][bug_1807] frank_chan add
+	memset(work_buf, 0, 72);
+	sprintf(work_buf, "Restart sequence requested for %s, restart_level = %s.\n",name, restart_levels[dev->restart_level]);
+//E [VY52/VY55][bug_1807] frank_chan add
+
+
+
+//[VY5x] ==> CCI KLog, added by Jimmy@CCI
+#ifdef CONFIG_CCI_KLOG
+//modem fatal error
+#if CCI_KLOG_CRASH_SIZE
+	set_fault_state(FAULT_LEVEL_SUBSYSTEM, dev->restart_level, name);
+#endif // #if CCI_KLOG_CRASH_SIZE
+	if(strcmp(name, "modem") == 0)
+	{
+		cklc_save_magic(KLOG_MAGIC_MARM_FATAL, KLOG_STATE_MARM_FATAL);
+	}
+	else
+	{
+		cklc_save_magic(KLOG_MAGIC_SUBSYS_CRASH, KLOG_STATE_SUBSYS_CRASH);
+	}
+#endif // #ifdef CONFIG_CCI_KLOG
+//[VY5x] <== CCI KLog, added by Jimmy@CCI
 
 	switch (dev->restart_level) {
 

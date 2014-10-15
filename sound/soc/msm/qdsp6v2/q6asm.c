@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -133,10 +133,6 @@ static int audio_output_latency_dbgfs_open(struct inode *inode,
 static ssize_t audio_output_latency_dbgfs_read(struct file *file,
 				char __user *buf, size_t count, loff_t *ppos)
 {
-	if (out_buffer == NULL) {
-		pr_err("%s: out_buffer is null\n", __func__);
-		return 0;
-	}
 	snprintf(out_buffer, OUT_BUFFER_SIZE, "%ld,%ld,%ld,%ld,%ld,%ld,",\
 		out_cold_tv.tv_sec, out_cold_tv.tv_usec, out_warm_tv.tv_sec,\
 		out_warm_tv.tv_usec, out_cont_tv.tv_sec, out_cont_tv.tv_usec);
@@ -182,10 +178,6 @@ static int audio_input_latency_dbgfs_open(struct inode *inode,
 static ssize_t audio_input_latency_dbgfs_read(struct file *file,
 				char __user *buf, size_t count, loff_t *ppos)
 {
-	if (in_buffer == NULL) {
-		pr_err("%s: in_buffer is null\n", __func__);
-		return 0;
-	}
 	snprintf(in_buffer, IN_BUFFER_SIZE, "%ld,%ld,",\
 				in_cont_tv.tv_sec, in_cont_tv.tv_usec);
 	return  simple_read_from_buffer(buf, IN_BUFFER_SIZE, ppos,
@@ -301,38 +293,17 @@ static void config_debug_fs_write(struct audio_buffer *ab)
 static void config_debug_fs_init(void)
 {
 	out_buffer = kmalloc(OUT_BUFFER_SIZE, GFP_KERNEL);
-	if (out_buffer == NULL) {
-		pr_err("%s: kmalloc() for out_buffer failed\n", __func__);
-		goto outbuf_fail;
-	}
-	in_buffer = kmalloc(IN_BUFFER_SIZE, GFP_KERNEL);
-	if (in_buffer == NULL) {
-		pr_err("%s: kmalloc() for in_buffer failed\n", __func__);
-		goto inbuf_fail;
-	}
 	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",\
 				S_IRUGO | S_IWUSR | S_IWGRP,\
 				NULL, NULL, &audio_output_latency_debug_fops);
-	if (IS_ERR(out_dentry)) {
-		pr_err("%s: debugfs_create_file failed\n", __func__);
-		goto file_fail;
-	}
+	if (IS_ERR(out_dentry))
+		pr_err("debugfs_create_file failed\n");
+	in_buffer = kmalloc(IN_BUFFER_SIZE, GFP_KERNEL);
 	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",\
 				S_IRUGO | S_IWUSR | S_IWGRP,\
 				NULL, NULL, &audio_input_latency_debug_fops);
-	if (IS_ERR(in_dentry)) {
-		pr_err("%s: debugfs_create_file failed\n", __func__);
-		goto file_fail;
-	}
-	return;
-file_fail:
-	kfree(in_buffer);
-inbuf_fail:
-	kfree(out_buffer);
-outbuf_fail:
-	in_buffer = NULL;
-	out_buffer = NULL;
-	return;
+	if (IS_ERR(in_dentry))
+		pr_err("debugfs_create_file failed\n");
 }
 #else
 static void config_debug_fs_write(struct audio_buffer *ab)
@@ -393,52 +364,60 @@ void send_asm_custom_topology(struct audio_client *ac)
 	struct list_head		*ptr, *next;
 	int				result;
 	int				size = 4096;
-
-	if (!set_custom_topology)
-		return;
-
 	get_asm_custom_topology(&cal_block);
 	if (cal_block.cal_size == 0) {
-		pr_debug("%s: no cal to send addr= 0x%pa\n",
-				__func__, &cal_block.cal_paddr);
-		return;
+		pr_debug("%s: no cal to send addr= 0x%x\n",
+				__func__, cal_block.cal_paddr);
+		goto done;
 	}
 
-	common_client.mmap_apr = q6asm_mmap_apr_reg();
-	common_client.apr = common_client.mmap_apr;
-	if (common_client.mmap_apr == NULL) {
-		pr_err("%s: q6asm_mmap_apr_reg failed\n",
-			__func__);
-		result = -EPERM;
-		goto mmap_fail;
-	}
-	/* Only call this once */
-	set_custom_topology = 0;
+	if (set_custom_topology) {
+		if (common_client.mmap_apr == NULL) {
+			common_client.mmap_apr = q6asm_mmap_apr_reg();
+			common_client.apr = common_client.mmap_apr;
+			if (common_client.mmap_apr == NULL) {
+				pr_err("%s: q6asm_mmap_apr_reg failed\n",
+					__func__);
+				result = -EPERM;
+				goto done;
+			}
+		}
+		/* Only call this once */
+		set_custom_topology = 0;
 
-	/* Use first asm buf to map memory */
-	if (common_client.port[IN].buf == NULL) {
-		pr_err("%s: common buf is NULL\n",
-			__func__);
-		goto err_map;
-	}
-	common_client.port[IN].buf->phys = cal_block.cal_paddr;
+		/* Use first asm buf to map memory */
+		if (common_client.port[IN].buf == NULL) {
+			pr_err("%s: common buf is NULL\n",
+				__func__);
+			goto done;
+		}
+		common_client.port[IN].buf->phys = cal_block.cal_paddr;
 
-	result = q6asm_memory_map_regions(&common_client,
-						IN, size, 1, 1);
-	if (result < 0) {
-		pr_err("%s: mmap did not work! addr = 0x%pa, size = %zd\n",
-			__func__, &cal_block.cal_paddr,
-			cal_block.cal_size);
-		goto err_map;
-	}
+		result = q6asm_memory_map_regions(&common_client,
+							IN, size, 1, 1);
+		if (result < 0) {
+			pr_err("%s: mmap did not work! addr = 0x%x, size = %d\n",
+				__func__, cal_block.cal_paddr,
+				cal_block.cal_size);
+			goto done;
+		}
 
-	list_for_each_safe(ptr, next,
-			&common_client.port[IN].mem_map_handle) {
-		buf_node = list_entry(ptr, struct asm_buffer_node,
-					list);
-		if (buf_node->buf_addr_lsw == cal_block.cal_paddr) {
-			topology_map_handle =  buf_node->mmap_hdl;
-			break;
+		list_for_each_safe(ptr, next,
+				&common_client.port[IN].mem_map_handle) {
+			buf_node = list_entry(ptr, struct asm_buffer_node,
+						list);
+			if (buf_node->buf_addr_lsw == cal_block.cal_paddr) {
+				topology_map_handle =  buf_node->mmap_hdl;
+				break;
+			}
+		}
+
+		result = q6asm_mmap_apr_dereg();
+		if (result < 0) {
+			pr_err("%s: q6asm_mmap_apr_dereg failed, err %d\n",
+				__func__, result);
+		} else {
+			common_client.mmap_apr = NULL;
 		}
 	}
 
@@ -460,7 +439,7 @@ void send_asm_custom_topology(struct audio_client *ac)
 	if (result < 0) {
 		pr_err("%s: Set topologies failed payload = 0x%x\n",
 			__func__, cal_block.cal_paddr);
-		goto err_unmap;
+		goto done;
 	}
 
 	result = wait_event_timeout(ac->cmd_wait,
@@ -468,15 +447,10 @@ void send_asm_custom_topology(struct audio_client *ac)
 	if (!result) {
 		pr_err("%s: Set topologies failed after timedout payload = 0x%x\n",
 			__func__, cal_block.cal_paddr);
-		goto err_unmap;
+		goto done;
 	}
-	return;
-err_unmap:
-	q6asm_memory_unmap_regions(ac, IN);
-err_map:
-	q6asm_mmap_apr_dereg();
-	set_custom_topology = 1;
-mmap_fail:
+
+done:
 	return;
 }
 
@@ -765,7 +739,6 @@ void q6asm_audio_client_free(struct audio_client *ac)
 	apr_deregister(ac->apr);
 	ac->apr = NULL;
 	ac->mmap_apr = NULL;
-	rtac_set_asm_handle(ac->session, ac->apr);
 	q6asm_session_free(ac);
 	q6asm_mmap_apr_dereg();
 
@@ -855,7 +828,7 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	if (ac->apr == NULL) {
 		pr_err("%s Registration with APR failed\n", __func__);
 		mutex_unlock(&session_lock);
-		goto fail_apr1;
+		goto fail;
 	}
 	ac->apr2 = apr_register("ADSP", "ASM", \
 				(apr_fn)q6asm_callback,\
@@ -865,17 +838,16 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	if (ac->apr2 == NULL) {
 		pr_err("%s Registration with APR-2 failed\n", __func__);
 		mutex_unlock(&session_lock);
-		goto fail_apr2;
+		goto fail;
 	}
-
 	rtac_set_asm_handle(n, ac->apr);
 
 	pr_debug("%s Registering the common port with APR\n", __func__);
 	ac->mmap_apr = q6asm_mmap_apr_reg();
 	if (ac->mmap_apr == NULL) {
 		mutex_unlock(&session_lock);
-		goto fail_mmap;
-	}
+		goto fail;
+        }
 
 	init_waitqueue_head(&ac->cmd_wait);
 	init_waitqueue_head(&ac->time_wait);
@@ -898,12 +870,9 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	mutex_unlock(&session_lock);
 
 	return ac;
-fail_mmap:
-	apr_deregister(ac->apr2);
-fail_apr2:
-	apr_deregister(ac->apr);
-fail_apr1:
-	q6asm_session_free(ac);
+fail:
+	q6asm_audio_client_free(ac);
+	return NULL;
 fail_session:
 	kfree(ac);
 	return NULL;
@@ -1117,20 +1086,12 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 	payload = data->payload;
 
 	if (data->opcode == RESET_EVENTS) {
-		struct audio_client *ac_mmap = (struct audio_client *)priv;
-		if (ac_mmap == NULL) {
-			pr_err("%s ac or priv NULL\n", __func__);
-			return -EINVAL;
-		}
 		pr_debug("%s: Reset event is received: %d %d apr[%p]\n",
 				__func__,
 				data->reset_event,
 				data->reset_proc,
 				this_mmap.apr);
-		atomic_set(&this_mmap.ref_cnt, 0);
 		apr_reset(this_mmap.apr);
-		this_mmap.apr = NULL;
-		ac_mmap->mmap_apr = NULL;
 		for (; i <= OUT; i++) {
 			list_for_each_safe(ptr, next,
 				&common_client.port[i].mem_map_handle) {
@@ -1145,6 +1106,7 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 			}
 			pr_debug("%s:Clearing custom topology\n", __func__);
 		}
+		this_mmap.apr = NULL;
 		reset_custom_topology_flags();
 		set_custom_topology = 1;
 		topology_map_handle = 0;
@@ -1278,9 +1240,6 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	}
 
 	if (data->opcode == RESET_EVENTS) {
-		if(ac->apr == NULL) {
-		    ac->apr = ac->apr2;
-		}
 		pr_debug("q6asm_callback: Reset event is received: %d %d apr[%p]\n",
 				data->reset_event, data->reset_proc, ac->apr);
 			if (ac->cb)

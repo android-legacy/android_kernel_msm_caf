@@ -26,28 +26,6 @@ EXPORT_SYMBOL_GPL(power_supply_class);
 static struct device_type power_supply_dev_type;
 
 /**
- * power_supply_set_voltage_limit - set current limit
- * @psy:	the power supply to control
- * @limit:	current limit in uV from the power supply.
- *		0 will disable the power supply.
- *
- * This function will set a maximum supply current from a source
- * and it will disable the charger when limit is 0.
- */
-int power_supply_set_voltage_limit(struct power_supply *psy, int limit)
-{
-	const union power_supply_propval ret = {limit,};
-
-	if (psy->set_property)
-		return psy->set_property(psy, POWER_SUPPLY_PROP_VOLTAGE_MAX,
-								&ret);
-
-	return -ENXIO;
-}
-EXPORT_SYMBOL(power_supply_set_voltage_limit);
-
-
-/**
  * power_supply_set_current_limit - set current limit
  * @psy:	the power supply to control
  * @limit:	current limit in uA from the power supply.
@@ -218,8 +196,12 @@ static void power_supply_changed_work(struct work_struct *work)
 
 		class_for_each_device(power_supply_class, NULL, psy,
 				      __power_supply_changed_work);
-
+/* [CCI] S- Bug#550 Jonny_Chan*/ 
+		#ifdef ORV_VER
 		power_supply_update_leds(psy);
+		#else
+		#endif
+/* [CCI] E- Bug#550 Jonny_Chan*/ 
 
 		kobject_uevent(&psy->dev->kobj, KOBJ_CHANGE);
 		spin_lock_irqsave(&psy->changed_lock, flags);

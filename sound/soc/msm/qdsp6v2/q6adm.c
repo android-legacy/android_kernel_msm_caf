@@ -479,12 +479,6 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 {
 	uint32_t *payload;
 	int i, index;
-
-	if (data == NULL) {
-		pr_err("%s: data paramter is null\n", __func__);
-		return -EINVAL;
-	}
-
 	payload = data->payload;
 
 	if (data->opcode == RESET_EVENTS) {
@@ -1167,8 +1161,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 
 		open.topology_id = topology;
 		if ((open.topology_id == VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
-			(open.topology_id == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY) ||
-			(open.topology_id == VPM_TX_DM_RFECNS_COPP_TOPOLOGY))
+			(open.topology_id == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY))
 				rate = 16000;
 
 		if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
@@ -1176,10 +1169,6 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			rate = ULL_SUPPORTED_SAMPLE_RATE;
 			if(channel_mode > ULL_MAX_SUPPORTED_CHANNEL)
 				channel_mode = ULL_MAX_SUPPORTED_CHANNEL;
-		} else if (perf_mode == LOW_LATENCY_PCM_MODE) {
-			if ((open.topology_id == DOLBY_ADM_COPP_TOPOLOGY_ID) ||
-			    (open.topology_id == SRS_TRUMEDIA_TOPOLOGY_ID))
-				open.topology_id = DEFAULT_COPP_TOPOLOGY;
 		}
 		open.dev_num_channel = channel_mode & 0x00FF;
 		open.bit_width = bits_per_sample;
